@@ -66,10 +66,10 @@ status: ## Check sync status
 		echo "  No scheduled sync found"; \
 	fi
 	@echo "\nLast sync:"
-	@if [ -f sync.log ]; then \
-		tail -n 5 sync.log; \
+	@if [ -f logs/sync.log ]; then \
+		tail -n 5 logs/sync.log; \
 	else \
-		echo "  No log file found"; \
+		echo "  No log file found in logs/sync.log"; \
 	fi
 
 clean: ## Clean up generated files
@@ -87,10 +87,10 @@ clean: ## Clean up generated files
 	find . -type d -name "dist" -exec rm -r {} +
 
 logs: ## View sync logs
-	@if [ -f sync.log ]; then \
-		tail -f sync.log; \
+	@if [ -f logs/sync.log ]; then \
+		tail -f logs/sync.log; \
 	else \
-		echo "No log file found"; \
+		echo "No log file found in logs/sync.log"; \
 	fi
 
 update: ## Update dependencies to their latest versions
