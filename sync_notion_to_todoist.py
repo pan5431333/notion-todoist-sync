@@ -29,7 +29,7 @@ def load_config(path):
 
 def get_recently_modified_notion_tasks(notion, database_id):
     now = datetime.now(timezone.utc)
-    one_hour_ago = now - timedelta(hours=1)
+    five_minutes_ago = now - timedelta(minutes=5)
     
     response = notion.databases.query(
         database_id=database_id,
@@ -38,7 +38,7 @@ def get_recently_modified_notion_tasks(notion, database_id):
                 {
                     "timestamp": "last_edited_time",
                     "last_edited_time": {
-                        "after": one_hour_ago.isoformat()
+                        "after": five_minutes_ago.isoformat()
                     }
                 }
             ]
