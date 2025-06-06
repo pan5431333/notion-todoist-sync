@@ -527,7 +527,7 @@ async def sync():
                     # Handle completion status first
                     if is_completed and not first_task.is_completed:
                         print(f"\nMarking task {first_task.id} as completed (current status: {first_task.is_completed})")
-                        await todoist.complete_task(task_id=first_task.id)
+                        await todoist.close_task(task_id=first_task.id)
                         print(f"Successfully marked task {first_task.id} as completed")
                         processed_count += 1
                         continue  # Skip other updates if task is completed
