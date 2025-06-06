@@ -411,14 +411,29 @@ async def sync():
                     try:
                         # Handle project_id and parent_id updates first
                         update_fields = valid_fields.copy()
-                        if 'project_id' in update_fields:
-                            await todoist.update_task(task_id=first_task.id, project_id=update_fields.pop('project_id'))
                         
+                        # Convert project name to project_id
+                        if 'project' in update_fields:
+                            project_name = update_fields.pop('project')
+                            if project_name in project_id_map:
+                                project_id = project_id_map[project_name]
+                                await todoist.update_task(task_id=first_task.id, project_id=project_id)
+                        
+                        # Handle parent_id separately
                         if 'parent_id' in update_fields:
-                            await todoist.update_task(task_id=first_task.id, parent_id=update_fields.pop('parent_id'))
+                            parent_id = update_fields.pop('parent_id')
+                            await todoist.update_task(task_id=first_task.id, parent_id=parent_id)
+                        
+                        # Clean up fields that can't be updated
+                        update_fields.pop('project_id', None)  # Remove if exists
                         
                         # Now update the other fields if any remain
                         if update_fields:
+                            # Convert due_string to due_date if needed
+                            if 'due_string' in update_fields:
+                                due_string = update_fields.pop('due_string')
+                                update_fields['due_date'] = due_string
+                            
                             await todoist.update_task(task_id=first_task.id, **update_fields)
                         
                         print(f"Updated task: {first_task.id} - {valid_fields.get('content')}")
@@ -448,6 +463,17 @@ async def sync():
                 else:
                     # Create new task
                     try:
+                        # Convert project name to project_id for new task
+                        if 'project' in valid_fields:
+                            project_name = valid_fields.pop('project')
+                            if project_name in project_id_map:
+                                valid_fields['project_id'] = project_id_map[project_name]
+                        
+                        # Convert due_string to due_date if needed
+                        if 'due_string' in valid_fields:
+                            due_string = valid_fields.pop('due_string')
+                            valid_fields['due_date'] = due_string
+                        
                         new_task = await todoist.add_task(**valid_fields)
                         # Add Notion ID as a comment
                         await todoist.add_comment(task_id=new_task.id, content=f"Notion ID: {notion_id}")
