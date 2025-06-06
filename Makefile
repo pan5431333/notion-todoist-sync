@@ -1,4 +1,4 @@
-.PHONY: install setup run schedule stop clean logs help
+.PHONY: install setup run schedule unschedule status clean logs help
 
 # Colors for terminal output
 BLUE=\033[0;34m
@@ -40,17 +40,30 @@ setup: ## Set up the project (create config files if they don't exist)
 		echo "Please update schedule_config.json with your preferences"; \
 	fi
 
-run: ## Run the sync once
-	@echo "${GREEN}Running sync...${NC}"
-	poetry run python run_sync.py
+run:
+	@echo "Running sync... "
+	poetry run sync
 
-schedule: ## Set up scheduled sync using cron
-	@echo "${GREEN}Setting up scheduled sync...${NC}"
-	poetry run python setup_cron.py
+schedule:
+	@echo "Scheduling sync..."
+	@crontab -l | grep -v "notion-todoist-sync" | { cat; echo "* * * * * $(shell pwd)/run_sync.sh # notion-todoist-sync"; } | crontab -
+	@echo "Sync scheduled successfully"
 
-stop: ## Stop scheduled sync (remove cron job)
-	@echo "${GREEN}Removing scheduled sync...${NC}"
-	crontab -l | grep -v "notion-todoist-sync" | crontab -
+unschedule:
+	@echo "Removing scheduled sync..."
+	@crontab -l | grep -v "notion-todoist-sync" | crontab -
+	@echo "Sync unscheduled successfully"
+
+status:
+	@echo "Checking sync status... "
+	@echo "Cron job status:"
+	@crontab -l | grep "notion-todoist-sync" || echo "  No scheduled sync found"
+	@if [ -f "logs/sync.log" ]; then \
+		echo -e "\nLast sync:"; \
+		tail -n 10 logs/sync.log; \
+	else \
+		echo -e "\nNo sync logs found"; \
+	fi
 
 clean: ## Clean up generated files
 	@echo "${GREEN}Cleaning up...${NC}"
@@ -72,6 +85,19 @@ logs: ## View sync logs
 	else \
 		echo "No log file found"; \
 	fi
+
+update: ## Update dependencies to their latest versions
+	@echo "${GREEN}Updating dependencies...${NC}"
+	poetry update
+
+shell: ## Spawn a shell within the virtual environment
+	poetry shell
+
+check: ## Run all checks (format, lint, etc)
+	@echo "${GREEN}Running checks...${NC}"
+	poetry run black .
+	poetry run flake8
+	poetry run mypy .
 
 update: ## Update dependencies to their latest versions
 	@echo "${GREEN}Updating dependencies...${NC}"
