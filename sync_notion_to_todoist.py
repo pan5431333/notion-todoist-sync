@@ -268,7 +268,40 @@ def get_notion_field_value(field_value):
         return field_value["relation"][0]["id"]
     return None
 
-async def get_or_create_parent_task(todoist, notion, notion_task, config, project_id_map, task_notion_map):
+async def sync_parent_task_metadata(todoist, parent_task, child_task):
+    """Sync parent task metadata (priority, due date) with child task"""
+    update_needed = False
+    update_fields = {}
+    
+    # Check priority
+    parent_priority = getattr(parent_task, 'priority', 1)
+    child_priority = getattr(child_task, 'priority', 1)
+    if parent_priority < child_priority:
+        update_fields['priority'] = child_priority
+        print(f"Updating parent task priority from {parent_priority} to {child_priority}")
+        update_needed = True
+    
+    # Check due date
+    parent_due = getattr(parent_task, 'due', None)
+    child_due = getattr(child_task, 'due', None)
+    parent_date = parent_due.date if parent_due else None
+    child_date = child_due.date if child_due else None
+    
+    if child_date:
+        if not parent_date or (parent_date < child_date):
+            update_fields['due_date'] = child_date
+            print(f"Updating parent task due date from {parent_date} to {child_date}")
+            update_needed = True
+    
+    # Update parent task if needed
+    if update_needed:
+        try:
+            await todoist.update_task(task_id=parent_task.id, **update_fields)
+            print(f"Successfully updated parent task metadata")
+        except Exception as e:
+            print(f"Error updating parent task metadata: {e}")
+
+async def get_or_create_parent_task(todoist, notion, notion_task, config, project_id_map, task_notion_map, from_notion_label=None):
     """Get or create a parent task based on the parent field value"""
     parent_config = config.get("parent_task_field")
     if not parent_config or not parent_config.get("create_parent"):
@@ -304,15 +337,25 @@ async def get_or_create_parent_task(todoist, notion, notion_task, config, projec
         return None
 
     # Search for existing parent task with this Notion ID
+    parent_task = None
     async for tasks_batch in todoist.get_tasks():
         for task in tasks_batch:
             task_notion_id = task_notion_map.get(task.id)
             if task_notion_id == parent_page_id:
                 print(f"Found existing parent task: {task.content} (ID: {task.id})")
+                parent_task = task
                 # Update the title if it has changed
                 if task.content != parent_title:
                     await todoist.update_task(task_id=task.id, content=parent_title)
                     print(f"Updated parent task title to: {parent_title}")
+                
+                # Add "From Notion" label if it's missing
+                if from_notion_label and from_notion_label not in (task.labels or []):
+                    labels = list(task.labels or [])
+                    labels.append(from_notion_label)
+                    await todoist.update_task(task_id=task.id, labels=labels)
+                    print(f"Added 'From Notion' label to parent task")
+                
                 return task.id
 
     # If no parent task exists, create one
@@ -321,11 +364,18 @@ async def get_or_create_parent_task(todoist, notion, notion_task, config, projec
         project_name = get_notion_field_value(notion_task["properties"].get("项目"))
         project_id = project_id_map.get(project_name) if project_name else None
 
+        # Prepare task fields
+        task_fields = {
+            'content': parent_title,
+            'project_id': project_id if project_id else None,
+        }
+        
+        # Add "From Notion" label if available
+        if from_notion_label:
+            task_fields['labels'] = [from_notion_label]
+        
         # Create parent task
-        parent_task = await todoist.add_task(
-            content=parent_title,
-            project_id=project_id if project_id else None
-        )
+        parent_task = await todoist.add_task(**task_fields)
         # Add Notion ID as comment
         await todoist.add_comment(task_id=parent_task.id, content=f"Notion ID: {parent_page_id}")
         print(f"Created new parent task: {parent_task.content} (ID: {parent_task.id})")
@@ -410,10 +460,18 @@ async def sync():
                         print(f"Warning: Project '{project_name}' not found in Todoist")
                 
                 # Get or create parent task if needed
-                parent_id = await get_or_create_parent_task(todoist, notion, notion_task, config, project_id_map, task_notion_map)
+                parent_id = await get_or_create_parent_task(todoist, notion, notion_task, config, project_id_map, task_notion_map, from_notion_label)
                 if parent_id:
                     valid_fields['parent_id'] = parent_id
                     print(f"Task will be created as subtask of: {parent_id}")
+                    
+                    # Get parent task object for metadata sync
+                    parent_task = None
+                    async for tasks_batch in todoist.get_tasks():
+                        for task in tasks_batch:
+                            if task.id == parent_id:
+                                parent_task = task
+                                break
                 
                 # Find all tasks with this Notion ID
                 matching_tasks = await find_tasks_by_notion_id(todoist, all_todoist_tasks, notion_id, task_notion_map)
@@ -466,12 +524,20 @@ async def sync():
                             project_name = update_fields.pop('project')
                             if project_name in project_id_map:
                                 project_id = project_id_map[project_name]
-                                await todoist.update_task(task_id=first_task.id, project_id=project_id)
+                                try:
+                                    await todoist.update_task(task_id=first_task.id, project_id=project_id)
+                                    print(f"Updated project ID to: {project_id}")
+                                except Exception as e:
+                                    print(f"Error updating project ID: {e}")
                         
                         # Handle parent_id separately
                         if 'parent_id' in update_fields:
                             parent_id = update_fields.pop('parent_id')
-                            await todoist.update_task(task_id=first_task.id, parent_id=parent_id)
+                            try:
+                                await todoist.update_task(task_id=first_task.id, parent_id=parent_id)
+                                print(f"Updated parent ID to: {parent_id}")
+                            except Exception as e:
+                                print(f"Error updating parent ID: {e}")
                         
                         # Clean up fields that can't be updated
                         update_fields.pop('project_id', None)  # Remove if exists
@@ -483,13 +549,23 @@ async def sync():
                                 due_string = update_fields.pop('due_string')
                                 update_fields['due_date'] = due_string
                             
-                            await todoist.update_task(task_id=first_task.id, **update_fields)
+                            try:
+                                await todoist.update_task(task_id=first_task.id, **update_fields)
+                                print(f"Updated task fields: {list(update_fields.keys())}")
+                            except Exception as e:
+                                print(f"Error updating task fields: {e}")
+                                print(f"Fields that failed to update: {update_fields}")
                         
                         print(f"Updated task: {first_task.id} - {valid_fields.get('content')}")
                         processed_count += 1
                         
+                        # Sync parent task metadata if needed
+                        if parent_task:
+                            await sync_parent_task_metadata(todoist, parent_task, first_task)
+                        
                     except Exception as e:
                         print(f"Error updating task {first_task.id}: {e}")
+                        print(f"Update fields attempted: {valid_fields}")
                     
                     # Delete any duplicates
                     if len(matching_tasks) > 1:
@@ -524,6 +600,10 @@ async def sync():
                         if is_completed:
                             await todoist.close_task(task_id=new_task.id)
                             print(f"Marked new task {new_task.id} as completed")
+                        
+                        # Sync parent task metadata if needed
+                        if parent_task:
+                            await sync_parent_task_metadata(todoist, parent_task, new_task)
                         
                         processed_count += 1
                     except Exception as e:
