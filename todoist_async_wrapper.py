@@ -31,9 +31,8 @@ class TodoistAsyncWrapper:
 
     async def get_tasks(self) -> AsyncGenerator[list[Task], None]:
         """Get all tasks."""
-        paginator = await run_async(lambda: list(self._api.get_tasks()))
-        for batch in paginator:
-            yield batch
+        tasks = await run_async(self._api.get_tasks)
+        yield [tasks] if isinstance(tasks, Task) else tasks
 
     async def get_projects(self) -> AsyncGenerator[list[Project], None]:
         """Get all projects."""
@@ -101,4 +100,12 @@ class TodoistAsyncWrapper:
 
     async def add_comment(self, task_id: str, content: str) -> Comment:
         """Add a comment to a task."""
-        return await run_async(lambda: self._api.add_comment(content, task_id=task_id)) 
+        return await run_async(lambda: self._api.add_comment(content, task_id=task_id))
+
+    async def close_task(self, task_id: str) -> bool:
+        """Close (complete) a task."""
+        return await run_async(lambda: self._api.close_task(task_id))
+
+    async def reopen_task(self, task_id: str) -> bool:
+        """Reopen (uncomplete) a task."""
+        return await run_async(lambda: self._api.reopen_task(task_id)) 
