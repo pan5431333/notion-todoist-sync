@@ -46,8 +46,10 @@ run:
 
 schedule:
 	@echo "Scheduling sync..."
-	@crontab -l | grep -v "notion-todoist-sync" | { cat; echo "* * * * * $(shell pwd)/run_sync.sh # notion-todoist-sync"; } | crontab -
+	@crontab -l | grep -v "notion-todoist-sync" | { cat; echo "* * * * * /root/Projects/notion-todoist-sync/run_sync.sh # notion-todoist-sync"; } | crontab -
 	@echo "Sync scheduled successfully"
+	@echo "Verifying cron job..."
+	@crontab -l | grep "notion-todoist-sync"
 
 unschedule:
 	@echo "Removing scheduled sync..."
