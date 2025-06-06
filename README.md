@@ -41,8 +41,8 @@ A Python script that synchronizes tasks between Notion and Todoist, with support
 
 3. Update the configuration files:
    - `.env`: Add your API tokens
-   - `sync_config.json`: Configure field mappings
-   - `schedule_config.json`: Configure sync schedule
+   - `config/sync_config.json`: Configure field mappings
+   - `config/schedule_config.json`: Configure sync schedule
 
 4. Run the sync:
    ```bash
@@ -100,7 +100,7 @@ NOTION_DATABASE_ID=your_database_id      # From your Notion database URL
 TODOIST_TOKEN=your_todoist_token        # From Todoist integrations settings
 ```
 
-### Field Mapping (`sync_config.json`)
+### Field Mapping (`config/sync_config.json`)
 ```json
 {
   "field_mapping": {
@@ -129,26 +129,36 @@ TODOIST_TOKEN=your_todoist_token        # From Todoist integrations settings
 }
 ```
 
-### Schedule Configuration (`schedule_config.json`)
+### Schedule Configuration (`config/schedule_config.json`)
 ```json
 {
-  "schedule": {
-    "enabled": true,
-    "interval_minutes": 1,          // How often to sync
-    "time_window": {
-      "enabled": false,             // Optional time restriction
-      "start_time": "09:00",
-      "end_time": "18:00"
-    },
-    "max_tasks_per_run": 100,      // Limit tasks per sync
-    "log_file": "sync.log",
-    "error_notification": {
-      "enabled": false,
-      "email": ""
+    "schedule": {
+        "enabled": true,
+        "interval_minutes": 1,
+        "time_window": {
+            "enabled": false,
+            "start_time": "09:00",
+            "end_time": "17:00"
+        },
+        "log_file": "sync.log"
     }
-  }
 }
 ```
+
+The schedule configuration allows you to:
+- Enable/disable scheduled syncing (`enabled`)
+- Set the sync interval in minutes (`interval_minutes`)
+- Optionally restrict syncing to a specific time window:
+  - Enable time window with `time_window.enabled`
+  - Set working hours with `start_time` and `end_time` (24-hour format)
+- Specify the log file location (`log_file`)
+
+For example:
+- To sync every 5 minutes: set `interval_minutes` to 5
+- To sync every hour during work hours: set `interval_minutes` to 60 and enable the time window
+- To disable scheduled syncing: set `enabled` to false
+
+Use `make schedule` to apply the schedule configuration and `make unschedule` to remove it.
 
 ## Troubleshooting
 
@@ -206,14 +216,18 @@ TODOIST_TOKEN=your_todoist_token        # From Todoist integrations settings
 
 ```
 notion-todoist-sync/
-├── sync_notion_to_todoist.py   # Main sync logic
-├── todoist_async_wrapper.py    # Async Todoist API wrapper
-├── run_sync.py                # Sync runner with logging
-├── setup_cron.py             # Cron job setup
-├── sync_config.json          # Field mapping config
-├── schedule_config.json      # Schedule config
-├── .env                     # Environment variables
-└── Makefile                # Project commands
+├── notion_todoist_sync/     # Main package directory
+│   ├── __init__.py
+│   ├── run_sync.py         # Entry point script
+│   ├── sync_notion_to_todoist.py  # Main sync logic
+│   └── todoist_async_wrapper.py   # Todoist API wrapper
+├── config/                  # Configuration directory
+│   ├── sync_config.json    # Field mapping config
+│   └── schedule_config.json # Schedule config
+├── run_sync.sh             # Shell script for cron job
+├── Makefile               # Project automation
+├── pyproject.toml         # Poetry project file
+└── README.md             # This file
 ```
 
 ## License

@@ -1,0 +1,93 @@
+2025-06-06 22:47:55,521 - INFO - Starting sync process...
+2025-06-06 22:47:58,207 - INFO - HTTP Request: POST https://api.notion.com/v1/databases/25374e774ec44480be85b2b54d5c3d91/query "HTTP/1.1 200 OK"
+2025-06-06 22:47:58,652 - INFO - Sync completed successfully
+2025-06-06 22:49:41,431 - INFO - Starting sync process...
+2025-06-06 22:49:44,156 - INFO - HTTP Request: POST https://api.notion.com/v1/databases/25374e774ec44480be85b2b54d5c3d91/query "HTTP/1.1 200 OK"
+2025-06-06 22:50:30,953 - INFO - Sync completed successfully
+2025-06-06 22:51:18,120 - INFO - Starting sync process...
+2025-06-06 22:51:19,463 - INFO - HTTP Request: POST https://api.notion.com/v1/databases/25374e774ec44480be85b2b54d5c3d91/query "HTTP/1.1 200 OK"
+2025-06-06 22:52:05,817 - INFO - HTTP Request: GET https://api.notion.com/v1/pages/200e0689-40de-800a-a29f-c16e0ce54024 "HTTP/1.1 200 OK"
+2025-06-06 22:52:08,994 - INFO - Sync completed successfully
+2025-06-06 22:53:58,771 - INFO - Starting sync process...
+2025-06-06 22:53:59,728 - INFO - HTTP Request: POST https://api.notion.com/v1/databases/25374e774ec44480be85b2b54d5c3d91/query "HTTP/1.1 200 OK"
+2025-06-06 22:54:49,360 - INFO - HTTP Request: GET https://api.notion.com/v1/pages/200e0689-40de-800a-a29f-c16e0ce54024 "HTTP/1.1 200 OK"
+2025-06-06 22:54:52,186 - INFO - HTTP Request: GET https://api.notion.com/v1/pages/200e0689-40de-800a-a29f-c16e0ce54024 "HTTP/1.1 200 OK"
+2025-06-06 22:54:53,764 - INFO - Sync completed successfully
+2025-06-06 22:55:46,892 - INFO - Starting sync process...
+2025-06-06 22:55:47,936 - INFO - HTTP Request: POST https://api.notion.com/v1/databases/25374e774ec44480be85b2b54d5c3d91/query "HTTP/1.1 200 OK"
+2025-06-06 22:56:32,070 - INFO - HTTP Request: GET https://api.notion.com/v1/pages/200e0689-40de-800a-a29f-c16e0ce54024 "HTTP/1.1 200 OK"
+2025-06-06 22:56:34,111 - INFO - HTTP Request: GET https://api.notion.com/v1/pages/200e0689-40de-800a-a29f-c16e0ce54024 "HTTP/1.1 200 OK"
+2025-06-06 22:56:35,860 - INFO - Sync completed successfully
+2025-06-06 22:57:15,264 - INFO - Starting sync process...
+2025-06-06 22:57:16,103 - INFO - HTTP Request: POST https://api.notion.com/v1/databases/25374e774ec44480be85b2b54d5c3d91/query "HTTP/1.1 200 OK"
+2025-06-06 22:58:00,523 - INFO - HTTP Request: GET https://api.notion.com/v1/pages/200e0689-40de-800a-a29f-c16e0ce54024 "HTTP/1.1 200 OK"
+2025-06-06 22:58:02,767 - INFO - HTTP Request: GET https://api.notion.com/v1/pages/200e0689-40de-800a-a29f-c16e0ce54024 "HTTP/1.1 200 OK"
+2025-06-06 22:58:04,088 - INFO - Sync completed successfully
+2025-06-06 22:59:08,209 - INFO - Starting sync process...
+2025-06-06 22:59:09,259 - INFO - HTTP Request: POST https://api.notion.com/v1/databases/25374e774ec44480be85b2b54d5c3d91/query "HTTP/1.1 200 OK"
+2025-06-06 22:59:52,478 - INFO - HTTP Request: GET https://api.notion.com/v1/pages/200e0689-40de-800a-a29f-c16e0ce54024 "HTTP/1.1 200 OK"
+2025-06-06 22:59:54,513 - INFO - HTTP Request: GET https://api.notion.com/v1/pages/200e0689-40de-800a-a29f-c16e0ce54024 "HTTP/1.1 200 OK"
+2025-06-06 22:59:56,364 - INFO - Sync completed successfully
+2025-06-06 23:02:25,968 - INFO - Starting sync process...
+2025-06-06 23:02:30,794 - INFO - HTTP Request: POST https://api.notion.com/v1/databases/25374e774ec44480be85b2b54d5c3d91/query "HTTP/1.1 200 OK"
+2025-06-06 23:03:15,183 - INFO - HTTP Request: GET https://api.notion.com/v1/pages/200e0689-40de-800a-a29f-c16e0ce54024 "HTTP/1.1 200 OK"
+2025-06-06 23:03:16,939 - INFO - HTTP Request: GET https://api.notion.com/v1/pages/200e0689-40de-800a-a29f-c16e0ce54024 "HTTP/1.1 200 OK"
+2025-06-06 23:03:18,921 - INFO - Sync completed successfully
+2025-06-06 23:04:20,953 - INFO - Starting sync process...
+2025-06-06 23:04:21,899 - INFO - HTTP Request: POST https://api.notion.com/v1/databases/25374e774ec44480be85b2b54d5c3d91/query "HTTP/1.1 200 OK"
+2025-06-06 23:05:11,053 - INFO - HTTP Request: GET https://api.notion.com/v1/pages/200e0689-40de-800a-a29f-c16e0ce54024 "HTTP/1.1 200 OK"
+2025-06-06 23:05:15,210 - INFO - HTTP Request: GET https://api.notion.com/v1/pages/200e0689-40de-800a-a29f-c16e0ce54024 "HTTP/1.1 200 OK"
+2025-06-06 23:05:16,798 - INFO - Sync completed successfully
+2025-06-06 23:05:53,967 - INFO - Starting sync process...
+2025-06-06 23:05:54,679 - INFO - HTTP Request: POST https://api.notion.com/v1/databases/25374e774ec44480be85b2b54d5c3d91/query "HTTP/1.1 200 OK"
+2025-06-06 23:06:51,272 - INFO - HTTP Request: GET https://api.notion.com/v1/pages/200e0689-40de-800a-a29f-c16e0ce54024 "HTTP/1.1 200 OK"
+2025-06-06 23:06:52,756 - INFO - HTTP Request: GET https://api.notion.com/v1/pages/200e0689-40de-800a-a29f-c16e0ce54024 "HTTP/1.1 200 OK"
+2025-06-06 23:06:55,814 - INFO - Sync completed successfully
+2025-06-06 23:16:08,618 - INFO - Starting sync process...
+2025-06-06 23:16:10,741 - INFO - HTTP Request: POST https://api.notion.com/v1/databases/25374e774ec44480be85b2b54d5c3d91/query "HTTP/1.1 200 OK"
+2025-06-06 23:16:10,743 - INFO - Sync completed successfully
+2025-06-06 23:16:15,337 - INFO - Starting sync process...
+2025-06-06 23:16:17,653 - INFO - HTTP Request: POST https://api.notion.com/v1/databases/25374e774ec44480be85b2b54d5c3d91/query "HTTP/1.1 200 OK"
+2025-06-06 23:16:17,654 - INFO - Sync completed successfully
+2025-06-06 23:16:44,737 - INFO - Starting sync process...
+2025-06-06 23:16:45,580 - INFO - HTTP Request: POST https://api.notion.com/v1/databases/25374e774ec44480be85b2b54d5c3d91/query "HTTP/1.1 200 OK"
+2025-06-06 23:16:45,580 - INFO - Sync completed successfully
+2025-06-06 23:17:24,879 - INFO - Starting sync process...
+2025-06-06 23:17:25,905 - INFO - HTTP Request: POST https://api.notion.com/v1/databases/25374e774ec44480be85b2b54d5c3d91/query "HTTP/1.1 200 OK"
+2025-06-06 23:17:28,088 - INFO - HTTP Request: GET https://api.notion.com/v1/pages/200e0689-40de-800a-a29f-c16e0ce54024 "HTTP/1.1 200 OK"
+2025-06-06 23:17:30,675 - INFO - Sync completed successfully
+2025-06-06 23:17:37,962 - INFO - Starting sync process...
+2025-06-06 23:17:38,793 - INFO - HTTP Request: POST https://api.notion.com/v1/databases/25374e774ec44480be85b2b54d5c3d91/query "HTTP/1.1 200 OK"
+2025-06-06 23:17:42,081 - INFO - HTTP Request: GET https://api.notion.com/v1/pages/200e0689-40de-800a-a29f-c16e0ce54024 "HTTP/1.1 200 OK"
+2025-06-06 23:17:45,584 - INFO - Sync completed successfully
+2025-06-06 23:22:21,570 - INFO - Starting sync process...
+2025-06-06 23:22:22,326 - INFO - HTTP Request: POST https://api.notion.com/v1/databases/25374e774ec44480be85b2b54d5c3d91/query "HTTP/1.1 200 OK"
+2025-06-06 23:22:24,308 - INFO - HTTP Request: GET https://api.notion.com/v1/pages/200e0689-40de-800a-a29f-c16e0ce54024 "HTTP/1.1 200 OK"
+2025-06-06 23:22:26,165 - INFO - Sync completed successfully
+2025-06-06 23:22:53,486 - INFO - Starting sync process...
+2025-06-06 23:22:54,214 - INFO - HTTP Request: POST https://api.notion.com/v1/databases/25374e774ec44480be85b2b54d5c3d91/query "HTTP/1.1 200 OK"
+2025-06-06 23:22:58,099 - INFO - HTTP Request: GET https://api.notion.com/v1/pages/200e0689-40de-800a-a29f-c16e0ce54024 "HTTP/1.1 200 OK"
+2025-06-06 23:23:01,080 - INFO - Sync completed successfully
+2025-06-06 23:23:24,620 - INFO - Starting sync process...
+2025-06-06 23:23:25,258 - INFO - HTTP Request: POST https://api.notion.com/v1/databases/25374e774ec44480be85b2b54d5c3d91/query "HTTP/1.1 200 OK"
+2025-06-06 23:23:31,791 - INFO - HTTP Request: GET https://api.notion.com/v1/pages/200e0689-40de-800a-a29f-c16e0ce54024 "HTTP/1.1 200 OK"
+2025-06-06 23:23:38,049 - INFO - Sync completed successfully
+2025-06-06 23:24:05,228 - INFO - Starting sync process...
+2025-06-06 23:24:06,383 - INFO - HTTP Request: POST https://api.notion.com/v1/databases/25374e774ec44480be85b2b54d5c3d91/query "HTTP/1.1 200 OK"
+2025-06-06 23:24:14,801 - INFO - HTTP Request: GET https://api.notion.com/v1/pages/200e0689-40de-800a-a29f-c16e0ce54024 "HTTP/1.1 200 OK"
+2025-06-06 23:24:18,452 - INFO - Sync completed successfully
+2025-06-06 23:26:49,230 - INFO - Starting sync process...
+2025-06-06 23:26:50,257 - INFO - HTTP Request: POST https://api.notion.com/v1/databases/25374e774ec44480be85b2b54d5c3d91/query "HTTP/1.1 200 OK"
+2025-06-06 23:26:51,926 - INFO - HTTP Request: GET https://api.notion.com/v1/pages/200e0689-40de-800a-a29f-c16e0ce54024 "HTTP/1.1 200 OK"
+2025-06-06 23:26:55,225 - INFO - Sync completed successfully
+2025-06-06 23:30:29,412 - INFO - Starting sync process...
+2025-06-06 23:30:30,187 - INFO - HTTP Request: POST https://api.notion.com/v1/databases/25374e774ec44480be85b2b54d5c3d91/query "HTTP/1.1 200 OK"
+2025-06-06 23:30:30,187 - INFO - Sync completed successfully
+2025-06-06 23:31:03,435 - INFO - Starting sync process...
+2025-06-06 23:31:04,311 - INFO - HTTP Request: POST https://api.notion.com/v1/databases/25374e774ec44480be85b2b54d5c3d91/query "HTTP/1.1 200 OK"
+2025-06-06 23:31:06,866 - INFO - HTTP Request: GET https://api.notion.com/v1/pages/200e0689-40de-800a-a29f-c16e0ce54024 "HTTP/1.1 200 OK"
+2025-06-06 23:31:08,513 - INFO - Sync completed successfully
+2025-06-06 23:31:51,115 - INFO - Starting sync process...
+2025-06-06 23:31:52,256 - INFO - HTTP Request: POST https://api.notion.com/v1/databases/25374e774ec44480be85b2b54d5c3d91/query "HTTP/1.1 200 OK"
+2025-06-06 23:31:54,459 - INFO - HTTP Request: GET https://api.notion.com/v1/pages/200e0689-40de-800a-a29f-c16e0ce54024 "HTTP/1.1 200 OK"
+2025-06-06 23:31:59,101 - INFO - Sync completed successfully

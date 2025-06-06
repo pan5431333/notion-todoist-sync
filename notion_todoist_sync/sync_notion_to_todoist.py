@@ -3,7 +3,7 @@ import json
 import asyncio
 import datetime
 from notion_client import Client as NotionClient
-from todoist_async_wrapper import TodoistAsyncWrapper
+from todoist_api_python.api_async import TodoistAPIAsync
 from dotenv import load_dotenv
 from datetime import datetime, date, timezone, timedelta
 
@@ -21,7 +21,7 @@ print(f"Notion Database ID exists: {bool(NOTION_DATABASE_ID)}")
 print(f"Todoist Token exists: {bool(TODOIST_TOKEN)}")
 
 # Example config: {"notion_column_name": "todoist_field_name", ...}
-CONFIG_PATH = os.getenv("SYNC_CONFIG_PATH", "sync_config.json")
+CONFIG_PATH = os.getenv("SYNC_CONFIG_PATH", os.path.join("config", "sync_config.json"))
 
 def load_config(path):
     with open(path, "r") as f:
@@ -151,14 +151,14 @@ async def get_todoist_project_id_map(todoist):
         project_map = {}
         
         # Get projects using the async API
-        async for projects_batch in todoist.get_projects():
-            for project in projects_batch:
-                try:
-                    project_map[project.name] = project.id
-                    print(f"Found project: {project.name} (ID: {project.id})")
-                except Exception as e:
-                    print(f"Error accessing project data: {e}")
-                    continue
+        projects = await todoist.get_projects()
+        for project in projects:
+            try:
+                project_map[project.name] = project.id
+                print(f"Found project: {project.name} (ID: {project.id})")
+            except Exception as e:
+                print(f"Error accessing project data: {e}")
+                continue
         
         print(f"Available Todoist projects: {list(project_map.keys())}")
         return project_map
@@ -204,13 +204,13 @@ async def get_notion_ids_for_tasks(todoist, tasks):
     task_notion_map = {}
     for task in notion_tasks:
         try:
-            async for comments_batch in todoist.get_comments(task_id=task.id):
-                for comment in comments_batch:
-                    content = comment.content.strip()
-                    if "Notion ID:" in content:
-                        notion_id = content.replace("Notion ID:", "").strip()
-                        task_notion_map[task.id] = notion_id
-                        break  # Found the Notion ID for this task, move to next task
+            comments = await todoist.get_comments(task_id=task.id)
+            for comment in comments:
+                content = comment.content.strip()
+                if "Notion ID:" in content:
+                    notion_id = content.replace("Notion ID:", "").strip()
+                    task_notion_map[task.id] = notion_id
+                    break  # Found the Notion ID for this task, move to next task
         except Exception as e:
             print(f"Error getting comments for task {task.id}: {e}")
             continue
@@ -338,25 +338,25 @@ async def get_or_create_parent_task(todoist, notion, notion_task, config, projec
 
     # Search for existing parent task with this Notion ID
     parent_task = None
-    async for tasks_batch in todoist.get_tasks():
-        for task in tasks_batch:
-            task_notion_id = task_notion_map.get(task.id)
-            if task_notion_id == parent_page_id:
-                print(f"Found existing parent task: {task.content} (ID: {task.id})")
-                parent_task = task
-                # Update the title if it has changed
-                if task.content != parent_title:
-                    await todoist.update_task(task_id=task.id, content=parent_title)
-                    print(f"Updated parent task title to: {parent_title}")
-                
-                # Add "From Notion" label if it's missing
-                if from_notion_label and from_notion_label not in (task.labels or []):
-                    labels = list(task.labels or [])
-                    labels.append(from_notion_label)
-                    await todoist.update_task(task_id=task.id, labels=labels)
-                    print(f"Added 'From Notion' label to parent task")
-                
-                return task.id
+    tasks = await todoist.get_tasks()
+    for task in tasks:
+        task_notion_id = task_notion_map.get(task.id)
+        if task_notion_id == parent_page_id:
+            print(f"Found existing parent task: {task.content} (ID: {task.id})")
+            parent_task = task
+            # Update the title if it has changed
+            if task.content != parent_title:
+                await todoist.update_task(task_id=task.id, content=parent_title)
+                print(f"Updated parent task title to: {parent_title}")
+            
+            # Add "From Notion" label if it's missing
+            if from_notion_label and from_notion_label not in (task.labels or []):
+                labels = list(task.labels or [])
+                labels.append(from_notion_label)
+                await todoist.update_task(task_id=task.id, labels=labels)
+                print(f"Added 'From Notion' label to parent task")
+            
+            return task.id
 
     # If no parent task exists, create one
     if parent_config.get("create_parent"):
@@ -384,236 +384,240 @@ async def get_or_create_parent_task(todoist, notion, notion_task, config, projec
     return None
 
 async def sync():
+    """Main sync function"""
     print("Starting sync function...")
     notion = NotionClient(auth=NOTION_TOKEN)
-    async with TodoistAsyncWrapper(TODOIST_TOKEN) as todoist:
-        try:
-            config = load_config(CONFIG_PATH)
-            print("Loaded config from sync_config.json")
-        except Exception as e:
-            print(f"Error loading config: {e}")
+    todoist = TodoistAPIAsync(TODOIST_TOKEN)
+    
+    try:
+        config = load_config(CONFIG_PATH)
+        print("Loaded config from sync_config.json")
+    except Exception as e:
+        print(f"Error loading config: {e}")
+        return
+    
+    try:
+        notion_tasks = get_recently_modified_notion_tasks(notion, NOTION_DATABASE_ID)
+        print(f"Retrieved {len(notion_tasks)} tasks from Notion")
+        if not notion_tasks:  # Early return if no tasks to process
+            print("No tasks to sync from Notion")
             return
+    except Exception as e:
+        print(f"Error getting Notion tasks: {e}")
+        return
+    
+    # Get all Todoist tasks and task-notion ID mappings once
+    try:
+        all_todoist_tasks = await todoist.get_tasks()
+        print(f"Retrieved {len(all_todoist_tasks)} tasks from Todoist")
         
+        # Get project name to ID mapping
+        project_id_map = await get_todoist_project_id_map(todoist)
+        print(f"Retrieved {len(project_id_map)} projects from Todoist")
+        
+        # Get or create "From Notion" label
+        from_notion_label = await get_or_create_from_notion_label(todoist)
+        if not from_notion_label:
+            print("Failed to get/create 'From Notion' label, continuing without it")
+        
+        # Get all task-notion ID mappings
+        task_notion_map = await get_notion_ids_for_tasks(todoist, all_todoist_tasks)
+        print(f"Retrieved Notion IDs for {len(task_notion_map)} tasks")
+        
+    except Exception as e:
+        print(f"Error getting Todoist tasks or projects: {e}")
+        return
+    
+    processed_count = 0
+    for notion_task in notion_tasks:
         try:
-            notion_tasks = get_recently_modified_notion_tasks(notion, NOTION_DATABASE_ID)
-            print(f"Retrieved {len(notion_tasks)} tasks from Notion")
-            if not notion_tasks:  # Early return if no tasks to process
-                print("No tasks to sync from Notion")
-                return
-        except Exception as e:
-            print(f"Error getting Notion tasks: {e}")
-            return
-        
-        # Get all Todoist tasks and task-notion ID mappings once
-        try:
-            all_todoist_tasks = []
-            async for tasks_batch in todoist.get_tasks():
-                all_todoist_tasks.extend(tasks_batch)
-            print(f"Retrieved {len(all_todoist_tasks)} tasks from Todoist")
+            # Get Notion task ID
+            notion_id = notion_task["id"]
+            print(f"\nProcessing Notion task: {notion_id}")
             
-            # Get project name to ID mapping
-            project_id_map = await get_todoist_project_id_map(todoist)
-            print(f"Retrieved {len(project_id_map)} projects from Todoist")
+            # Map Notion task fields to Todoist fields
+            valid_fields = map_notion_to_todoist(notion_task, config)
             
-            # Get or create "From Notion" label
-            from_notion_label = await get_or_create_from_notion_label(todoist)
-            if not from_notion_label:
-                print("Failed to get/create 'From Notion' label, continuing without it")
-            
-            # Get all task-notion ID mappings
-            task_notion_map = await get_notion_ids_for_tasks(todoist, all_todoist_tasks)
-            print(f"Retrieved Notion IDs for {len(task_notion_map)} tasks")
-            
-        except Exception as e:
-            print(f"Error getting Todoist tasks or projects: {e}")
-            return
-        
-        processed_count = 0
-        for notion_task in notion_tasks:
-            try:
-                # Get Notion task ID
-                notion_id = notion_task["id"]
-                print(f"\nProcessing Notion task: {notion_id}")
-                
-                # Map Notion task fields to Todoist fields
-                valid_fields = map_notion_to_todoist(notion_task, config)
-                
-                if not valid_fields.get('content'):
-                    print("Skipping task with no content")
-                    continue
-                
-                # Add "From Notion" label if available
-                if from_notion_label:
-                    labels = valid_fields.get('labels', [])
-                    if from_notion_label not in labels:
-                        labels.append(from_notion_label)
-                    valid_fields['labels'] = labels
-                
-                # Convert project name to project_id if present
-                if 'project' in valid_fields:
-                    project_name = valid_fields.pop('project')
-                    print(f"Looking up project ID for: {project_name}")
-                    if project_name in project_id_map:
-                        valid_fields['project_id'] = project_id_map[project_name]
-                        print(f"Found project ID: {valid_fields['project_id']}")
-                    else:
-                        print(f"Warning: Project '{project_name}' not found in Todoist")
-                
-                # Get or create parent task if needed
-                parent_id = await get_or_create_parent_task(todoist, notion, notion_task, config, project_id_map, task_notion_map, from_notion_label)
-                if parent_id:
-                    valid_fields['parent_id'] = parent_id
-                    print(f"Task will be created as subtask of: {parent_id}")
-                    
-                    # Get parent task object for metadata sync
-                    parent_task = None
-                    async for tasks_batch in todoist.get_tasks():
-                        for task in tasks_batch:
-                            if task.id == parent_id:
-                                parent_task = task
-                                break
-                
-                # Find all tasks with this Notion ID
-                matching_tasks = await find_tasks_by_notion_id(todoist, all_todoist_tasks, notion_id, task_notion_map)
-                
-                # Check completion status
-                completion_config = config.get("completion_field")
-                is_completed = False
-                if completion_config:
-                    field_name = completion_config["name"]
-                    done_value = completion_config["done_value"]
-                    if field_name in notion_task["properties"]:
-                        status = notion_task["properties"][field_name]
-                        print(f"\nChecking completion status:")
-                        print(f"Field name: {field_name}")
-                        print(f"Done value: {done_value}")
-                        print(f"Current status: {status}")
-                        if status["type"] == "status" and status["status"]:
-                            current_value = status["status"]["name"]
-                            is_completed = current_value == done_value
-                            print(f"Task completion status: {is_completed} (Notion value: {current_value}, Done value: {done_value})")
-                
-                if matching_tasks:
-                    print(f"\nFound {len(matching_tasks)} tasks with Notion ID: {notion_id}")
-                    print("Matching tasks:")
-                    for task in matching_tasks:
-                        print(f"- Task ID: {task.id}, Content: {task.content}, Is Completed: {task.is_completed}")
-                    
-                    # Update the first task
-                    first_task = matching_tasks[0]
-                    try:
-                        # Handle completion status first
-                        if is_completed and not first_task.is_completed:
-                            print(f"\nMarking task {first_task.id} as completed (current status: {first_task.is_completed})")
-                            await todoist.close_task(task_id=first_task.id)
-                            print(f"Successfully marked task {first_task.id} as completed")
-                            processed_count += 1
-                            continue  # Skip other updates if task is completed
-                        elif not is_completed and first_task.is_completed:
-                            print(f"\nMarking task {first_task.id} as not completed (current status: {first_task.is_completed})")
-                            await todoist.reopen_task(task_id=first_task.id)
-                            print(f"Successfully marked task {first_task.id} as not completed")
-                            processed_count += 1
-                            continue  # Skip other updates if task completion status changed
-                        
-                        # Handle project_id and parent_id updates first
-                        update_fields = valid_fields.copy()
-                        
-                        # Convert project name to project_id
-                        if 'project' in update_fields:
-                            project_name = update_fields.pop('project')
-                            if project_name in project_id_map:
-                                project_id = project_id_map[project_name]
-                                try:
-                                    await todoist.update_task(task_id=first_task.id, project_id=project_id)
-                                    print(f"Updated project ID to: {project_id}")
-                                except Exception as e:
-                                    print(f"Error updating project ID: {e}")
-                        
-                        # Handle parent_id separately
-                        if 'parent_id' in update_fields:
-                            parent_id = update_fields.pop('parent_id')
-                            try:
-                                await todoist.update_task(task_id=first_task.id, parent_id=parent_id)
-                                print(f"Updated parent ID to: {parent_id}")
-                            except Exception as e:
-                                print(f"Error updating parent ID: {e}")
-                        
-                        # Clean up fields that can't be updated
-                        update_fields.pop('project_id', None)  # Remove if exists
-                        
-                        # Now update the other fields if any remain
-                        if update_fields:
-                            # Convert due_string to due_date if needed
-                            if 'due_string' in update_fields:
-                                due_string = update_fields.pop('due_string')
-                                update_fields['due_date'] = due_string
-                            
-                            try:
-                                await todoist.update_task(task_id=first_task.id, **update_fields)
-                                print(f"Updated task fields: {list(update_fields.keys())}")
-                            except Exception as e:
-                                print(f"Error updating task fields: {e}")
-                                print(f"Fields that failed to update: {update_fields}")
-                        
-                        print(f"Updated task: {first_task.id} - {valid_fields.get('content')}")
-                        processed_count += 1
-                        
-                        # Sync parent task metadata if needed
-                        if parent_task:
-                            await sync_parent_task_metadata(todoist, parent_task, first_task)
-                        
-                    except Exception as e:
-                        print(f"Error updating task {first_task.id}: {e}")
-                        print(f"Update fields attempted: {valid_fields}")
-                    
-                    # Delete any duplicates
-                    if len(matching_tasks) > 1:
-                        print(f"\nDeleting {len(matching_tasks) - 1} duplicate tasks:")
-                        for duplicate in matching_tasks[1:]:
-                            try:
-                                print(f"Deleting duplicate task: {duplicate.id} - {duplicate.content}")
-                                await todoist.delete_task(task_id=duplicate.id)
-                                print(f"Successfully deleted task: {duplicate.id}")
-                            except Exception as e:
-                                print(f"Error deleting duplicate task {duplicate.id}: {e}")
-                else:
-                    # Create new task
-                    try:
-                        # Convert project name to project_id for new task
-                        if 'project' in valid_fields:
-                            project_name = valid_fields.pop('project')
-                            if project_name in project_id_map:
-                                valid_fields['project_id'] = project_id_map[project_name]
-                        
-                        # Convert due_string to due_date if needed
-                        if 'due_string' in valid_fields:
-                            due_string = valid_fields.pop('due_string')
-                            valid_fields['due_date'] = due_string
-                        
-                        new_task = await todoist.add_task(**valid_fields)
-                        # Add Notion ID as a comment
-                        await todoist.add_comment(task_id=new_task.id, content=f"Notion ID: {notion_id}")
-                        print(f"Created new task: {valid_fields.get('content')} with Notion ID: {notion_id}")
-                        
-                        # Handle completion status for new task
-                        if is_completed:
-                            await todoist.close_task(task_id=new_task.id)
-                            print(f"Marked new task {new_task.id} as completed")
-                        
-                        # Sync parent task metadata if needed
-                        if parent_task:
-                            await sync_parent_task_metadata(todoist, parent_task, new_task)
-                        
-                        processed_count += 1
-                    except Exception as e:
-                        print(f"Failed to process task: {valid_fields}, error: {str(e)}")
-                        
-            except Exception as e:
-                print(f"Error processing Notion task: {e}")
+            if not valid_fields.get('content'):
+                print("Skipping task with no content")
                 continue
-        
-        print(f"\nSync completed. Processed {processed_count} tasks.")
+            
+            # Add "From Notion" label if available
+            if from_notion_label:
+                labels = valid_fields.get('labels', [])
+                if from_notion_label not in labels:
+                    labels.append(from_notion_label)
+                valid_fields['labels'] = labels
+            
+            # Convert project name to project_id if present
+            if 'project' in valid_fields:
+                project_name = valid_fields.pop('project')
+                print(f"Looking up project ID for: {project_name}")
+                if project_name in project_id_map:
+                    valid_fields['project_id'] = project_id_map[project_name]
+                    print(f"Found project ID: {valid_fields['project_id']}")
+                else:
+                    print(f"Warning: Project '{project_name}' not found in Todoist")
+            
+            # Get or create parent task if needed
+            parent_id = await get_or_create_parent_task(todoist, notion, notion_task, config, project_id_map, task_notion_map, from_notion_label)
+            if parent_id:
+                valid_fields['parent_id'] = parent_id
+                print(f"Task will be created as subtask of: {parent_id}")
+                
+                # Get parent task object for metadata sync
+                parent_task = None
+                tasks = await todoist.get_tasks()
+                for task in tasks:
+                    if task.id == parent_id:
+                        parent_task = task
+                        break
+            
+            # Find all tasks with this Notion ID
+            matching_tasks = []
+            for task in all_todoist_tasks:
+                task_notion_id = task_notion_map.get(task.id)
+                if task_notion_id == notion_id:
+                    matching_tasks.append(task)
+            
+            # Check completion status
+            completion_config = config.get("completion_field")
+            is_completed = False
+            if completion_config:
+                field_name = completion_config["name"]
+                done_value = completion_config["done_value"]
+                if field_name in notion_task["properties"]:
+                    status = notion_task["properties"][field_name]
+                    print(f"\nChecking completion status:")
+                    print(f"Field name: {field_name}")
+                    print(f"Done value: {done_value}")
+                    print(f"Current status: {status}")
+                    if status["type"] == "status" and status["status"]:
+                        current_value = status["status"]["name"]
+                        is_completed = current_value == done_value
+                        print(f"Task completion status: {is_completed} (Notion value: {current_value}, Done value: {done_value})")
+            
+            if matching_tasks:
+                print(f"\nFound {len(matching_tasks)} tasks with Notion ID: {notion_id}")
+                print("Matching tasks:")
+                for task in matching_tasks:
+                    print(f"- Task ID: {task.id}, Content: {task.content}, Is Completed: {task.is_completed}")
+                
+                # Update the first task
+                first_task = matching_tasks[0]
+                try:
+                    # Handle completion status first
+                    if is_completed and not first_task.is_completed:
+                        print(f"\nMarking task {first_task.id} as completed (current status: {first_task.is_completed})")
+                        await todoist.complete_task(task_id=first_task.id)
+                        print(f"Successfully marked task {first_task.id} as completed")
+                        processed_count += 1
+                        continue  # Skip other updates if task is completed
+                    elif not is_completed and first_task.is_completed:
+                        print(f"\nMarking task {first_task.id} as not completed (current status: {first_task.is_completed})")
+                        await todoist.uncomplete_task(task_id=first_task.id)
+                        print(f"Successfully marked task {first_task.id} as not completed")
+                        processed_count += 1
+                        continue  # Skip other updates if task completion status changed
+                    
+                    # Handle project_id and parent_id updates first
+                    update_fields = valid_fields.copy()
+                    
+                    # Convert project name to project_id
+                    if 'project' in update_fields:
+                        project_name = update_fields.pop('project')
+                        if project_name in project_id_map:
+                            project_id = project_id_map[project_name]
+                            try:
+                                await todoist.update_task(task_id=first_task.id, project_id=project_id)
+                                print(f"Updated project ID to: {project_id}")
+                            except Exception as e:
+                                print(f"Error updating project ID: {e}")
+                    
+                    # Handle parent_id separately
+                    if 'parent_id' in update_fields:
+                        parent_id = update_fields.pop('parent_id')
+                        try:
+                            await todoist.update_task(task_id=first_task.id, parent_id=parent_id)
+                            print(f"Updated parent ID to: {parent_id}")
+                        except Exception as e:
+                            print(f"Error updating parent ID: {e}")
+                    
+                    # Clean up fields that can't be updated
+                    update_fields.pop('project_id', None)  # Remove if exists
+                    
+                    # Now update the other fields if any remain
+                    if update_fields:
+                        # Convert due_string to due_date if needed
+                        if 'due_string' in update_fields:
+                            due_string = update_fields.pop('due_string')
+                            update_fields['due_date'] = due_string
+                        
+                        try:
+                            await todoist.update_task(task_id=first_task.id, **update_fields)
+                            print(f"Updated task fields: {list(update_fields.keys())}")
+                        except Exception as e:
+                            print(f"Error updating task fields: {e}")
+                            print(f"Fields that failed to update: {update_fields}")
+                    
+                    print(f"Updated task: {first_task.id} - {valid_fields.get('content')}")
+                    processed_count += 1
+                    
+                    # Sync parent task metadata if needed
+                    if parent_task:
+                        await sync_parent_task_metadata(todoist, parent_task, first_task)
+                    
+                except Exception as e:
+                    print(f"Error updating task {first_task.id}: {e}")
+                    print(f"Update fields attempted: {valid_fields}")
+                
+                # Delete any duplicates
+                if len(matching_tasks) > 1:
+                    print(f"\nDeleting {len(matching_tasks) - 1} duplicate tasks:")
+                    for duplicate in matching_tasks[1:]:
+                        try:
+                            print(f"Deleting duplicate task: {duplicate.id} - {duplicate.content}")
+                            await todoist.delete_task(task_id=duplicate.id)
+                            print(f"Successfully deleted task: {duplicate.id}")
+                        except Exception as e:
+                            print(f"Error deleting duplicate task {duplicate.id}: {e}")
+            else:
+                # Create new task
+                try:
+                    # Convert project name to project_id for new task
+                    if 'project' in valid_fields:
+                        project_name = valid_fields.pop('project')
+                        if project_name in project_id_map:
+                            valid_fields['project_id'] = project_id_map[project_name]
+                    
+                    # Convert due_string to due_date if needed
+                    if 'due_string' in valid_fields:
+                        due_string = valid_fields.pop('due_string')
+                        valid_fields['due_date'] = due_string
+                    
+                    new_task = await todoist.add_task(**valid_fields)
+                    # Add Notion ID as a comment
+                    await todoist.add_comment(task_id=new_task.id, content=f"Notion ID: {notion_id}")
+                    print(f"Created new task: {valid_fields.get('content')} with Notion ID: {notion_id}")
+                    
+                    # Handle completion status for new task
+                    if is_completed:
+                        await todoist.complete_task(task_id=new_task.id)
+                        print(f"Marked new task {new_task.id} as completed")
+                    
+                    # Sync parent task metadata if needed
+                    if parent_task:
+                        await sync_parent_task_metadata(todoist, parent_task, new_task)
+                    
+                    processed_count += 1
+                except Exception as e:
+                    print(f"Failed to process task: {valid_fields}, error: {str(e)}")
+                    
+        except Exception as e:
+            print(f"Error processing Notion task: {e}")
+            continue
+    
+    print(f"\nSync completed. Processed {processed_count} tasks.")
 
 if __name__ == "__main__":
     asyncio.run(sync()) 

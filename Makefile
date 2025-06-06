@@ -29,42 +29,47 @@ setup: ## Set up the project (create config files if they don't exist)
 		echo "TODOIST_TOKEN=your_todoist_token" >> .env; \
 		echo "Please update .env with your actual tokens"; \
 	fi
-	@if [ ! -f sync_config.json ]; then \
+	@mkdir -p config
+	@if [ ! -f config/sync_config.json ]; then \
 		echo "${GREEN}Creating sync_config.json...${NC}"; \
-		echo '{ "field_mapping": {}, "parent_task_field": {}, "description_fields": { "enabled": false, "fields": [] } }' > sync_config.json; \
-		echo "Please update sync_config.json with your field mappings"; \
+		echo '{ "field_mapping": {}, "parent_task_field": {}, "description_fields": { "enabled": false, "fields": [] } }' > config/sync_config.json; \
+		echo "Please update config/sync_config.json with your field mappings"; \
 	fi
-	@if [ ! -f schedule_config.json ]; then \
+	@if [ ! -f config/schedule_config.json ]; then \
 		echo "${GREEN}Creating schedule_config.json...${NC}"; \
-		echo '{ "schedule": { "enabled": true, "interval_minutes": 1, "time_window": { "enabled": false }, "log_file": "sync.log" } }' > schedule_config.json; \
-		echo "Please update schedule_config.json with your preferences"; \
+		echo '{ "schedule": { "enabled": true, "interval_minutes": 1, "time_window": { "enabled": false, "start_time": "09:00", "end_time": "17:00" }, "log_file": "sync.log" } }' > config/schedule_config.json; \
+		echo "Please update config/schedule_config.json with your preferences"; \
 	fi
 
-run:
+run: ## Run sync once
 	@echo "Running sync... "
 	poetry run sync
 
-schedule:
-	@echo "Scheduling sync..."
-	@crontab -l | grep -v "notion-todoist-sync" | { cat; echo "* * * * * /root/Projects/notion-todoist-sync/run_sync.sh # notion-todoist-sync"; } | crontab -
-	@echo "Sync scheduled successfully"
-	@echo "Verifying cron job..."
-	@crontab -l | grep "notion-todoist-sync"
-
-unschedule:
-	@echo "Removing scheduled sync..."
-	@crontab -l | grep -v "notion-todoist-sync" | crontab -
-	@echo "Sync unscheduled successfully"
-
-status:
-	@echo "Checking sync status... "
-	@echo "Cron job status:"
+schedule: ## Schedule sync based on config/schedule_config.json
+	@echo "${GREEN}Setting up sync schedule...${NC}"
+	@python3 notion_todoist_sync/scheduler.py
+	@echo "${GREEN}Verifying cron job...${NC}"
 	@crontab -l | grep "notion-todoist-sync" || echo "  No scheduled sync found"
-	@if [ -f "logs/sync.log" ]; then \
-		echo -e "\nLast sync:"; \
-		tail -n 10 logs/sync.log; \
+
+unschedule: ## Remove sync from crontab
+	@echo "${GREEN}Removing scheduled sync...${NC}"
+	@python3 -c "from notion_todoist_sync.scheduler import remove_schedule; remove_schedule()"
+	@echo "${GREEN}Sync unscheduled successfully${NC}"
+
+status: ## Check sync status
+	@echo "${GREEN}Checking sync status...${NC}"
+	@echo "Cron job status:"
+	@if crontab -l | grep "notion-todoist-sync" > /dev/null; then \
+		echo "  Scheduled sync is active"; \
+		crontab -l | grep "notion-todoist-sync"; \
 	else \
-		echo -e "\nNo sync logs found"; \
+		echo "  No scheduled sync found"; \
+	fi
+	@echo "\nLast sync:"
+	@if [ -f sync.log ]; then \
+		tail -n 5 sync.log; \
+	else \
+		echo "  No log file found"; \
 	fi
 
 clean: ## Clean up generated files
@@ -99,33 +104,4 @@ check: ## Run all checks (format, lint, etc)
 	@echo "${GREEN}Running checks...${NC}"
 	poetry run black .
 	poetry run flake8
-	poetry run mypy .
-
-update: ## Update dependencies to their latest versions
-	@echo "${GREEN}Updating dependencies...${NC}"
-	poetry update
-
-shell: ## Spawn a shell within the virtual environment
-	poetry shell
-
-check: ## Run all checks (format, lint, etc)
-	@echo "${GREEN}Running checks...${NC}"
-	poetry run black .
-	poetry run flake8
-	poetry run mypy .
-
-status: ## Check sync status
-	@echo "${GREEN}Checking sync status...${NC}"
-	@echo "Cron job status:"
-	@if crontab -l | grep "notion-todoist-sync" > /dev/null; then \
-		echo "  Scheduled sync is active"; \
-		crontab -l | grep "notion-todoist-sync"; \
-	else \
-		echo "  No scheduled sync found"; \
-	fi
-	@echo "\nLast sync:"
-	@if [ -f sync.log ]; then \
-		tail -n 5 sync.log; \
-	else \
-		echo "  No log file found"; \
-	fi 
+	poetry run mypy . 

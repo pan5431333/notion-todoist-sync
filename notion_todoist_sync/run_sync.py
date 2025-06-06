@@ -1,14 +1,10 @@
 """
-Main sync script for Notion-Todoist synchronization
+Main entry point for Notion-Todoist synchronization
 """
 import os
-import json
-import asyncio
-import datetime
-from notion_client import Client as NotionClient
-from todoist_api_python.api import TodoistAPI
 from dotenv import load_dotenv
-from datetime import datetime, date, timezone, timedelta
+import asyncio
+from notion_todoist_sync.sync_notion_to_todoist import sync
 
 def main():
     """Main entry point for the sync script"""
@@ -24,9 +20,6 @@ def main():
     print(f"Notion Token exists: {bool(NOTION_TOKEN)}")
     print(f"Notion Database ID exists: {bool(NOTION_DATABASE_ID)}")
     print(f"Todoist Token exists: {bool(TODOIST_TOKEN)}")
-
-    # Example config: {"notion_column_name": "todoist_field_name", ...}
-    CONFIG_PATH = os.getenv("SYNC_CONFIG_PATH", "sync_config.json")
 
     try:
         asyncio.run(sync())
