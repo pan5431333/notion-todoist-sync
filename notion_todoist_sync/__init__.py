@@ -1,0 +1,3 @@
+"""
+Notion-Todoist sync package
+""" 
