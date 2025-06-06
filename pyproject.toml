@@ -1,0 +1,19 @@
+[project]
+name = "notion-todoist-sync"
+version = "0.1.0"
+description = "Sync tasks from Notion to Todoist"
+authors = [
+    {name = "Your Name",email = "you@example.com"}
+]
+readme = "README.md"
+requires-python = "^3.9"
+dependencies = [
+    "notion-client (>=2.3.0,<3.0.0)",
+    "todoist-api-python (>=3.1.0,<4.0.0)",
+    "python-dotenv (>=1.1.0,<2.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

@@ -1,0 +1,31 @@
+{
+  "field_mapping": {
+    "任务名称": "content",
+    "计划时间": "due_date",
+    "优先级": "priority",
+    "due_string_en": "due_string",
+    "项目": "project",
+    "标签": "labels"
+  },
+  "parent_task_field": {
+    "name": "关联循证记录",
+    "create_parent": true,
+    "title_field": "Hypothesis"
+  },
+  "description_fields": {
+    "enabled": true,
+    "fields": [
+      {
+        "name": "启动动作",
+        "label": "启动动作",
+        "format": "### 启动动作\n{value}"
+      },
+      {
+        "name": "AssignTo",
+        "label": "AssignTo",
+        "format": "### AssignTo\n{value}"
+      }
+    ],
+    "separator": "\n\n"
+  }
+}
