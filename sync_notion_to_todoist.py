@@ -388,6 +388,18 @@ async def sync():
                 # Find all tasks with this Notion ID
                 matching_tasks = await find_tasks_by_notion_id(todoist, all_todoist_tasks, notion_id, task_notion_map)
                 
+                # Check completion status
+                completion_config = config.get("completion_field")
+                is_completed = False
+                if completion_config:
+                    field_name = completion_config["name"]
+                    done_value = completion_config["done_value"]
+                    if field_name in notion_task["properties"]:
+                        status = notion_task["properties"][field_name]
+                        if status["type"] == "select" and status["select"]:
+                            is_completed = status["select"]["name"] == done_value
+                            print(f"Task completion status: {is_completed} (Notion value: {status['select']['name']})")
+                
                 if matching_tasks:
                     print(f"\nFound {len(matching_tasks)} tasks with Notion ID: {notion_id}")
                     print("Matching tasks:")
@@ -410,6 +422,15 @@ async def sync():
                         # Now update the other fields
                         await todoist.update_task(task_id=first_task.id, **valid_fields)
                         print(f"Updated task: {first_task.id} - {valid_fields.get('content')}")
+                        
+                        # Handle completion status
+                        if is_completed and not first_task.is_completed:
+                            await todoist.close_task(task_id=first_task.id)
+                            print(f"Marked task {first_task.id} as completed")
+                        elif not is_completed and first_task.is_completed:
+                            await todoist.reopen_task(task_id=first_task.id)
+                            print(f"Marked task {first_task.id} as not completed")
+                        
                         processed_count += 1
                     except Exception as e:
                         print(f"Error updating task {first_task.id}: {e}")
@@ -431,6 +452,12 @@ async def sync():
                         # Add Notion ID as a comment
                         await todoist.add_comment(task_id=new_task.id, content=f"Notion ID: {notion_id}")
                         print(f"Created new task: {valid_fields.get('content')} with Notion ID: {notion_id}")
+                        
+                        # Handle completion status for new task
+                        if is_completed:
+                            await todoist.close_task(task_id=new_task.id)
+                            print(f"Marked new task {new_task.id} as completed")
+                        
                         processed_count += 1
                     except Exception as e:
                         print(f"Failed to process task: {valid_fields}, error: {str(e)}")

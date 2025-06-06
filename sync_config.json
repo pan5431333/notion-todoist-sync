@@ -27,5 +27,9 @@
       }
     ],
     "separator": "\n\n"
+  },
+  "completion_field": {
+    "name": "是否完成",
+    "done_value": "Done"
   }
 }
