@@ -36,15 +36,13 @@ class TodoistAsyncWrapper:
 
     async def get_projects(self) -> AsyncGenerator[list[Project], None]:
         """Get all projects."""
-        paginator = await run_async(lambda: list(self._api.get_projects()))
-        for batch in paginator:
-            yield batch
+        projects = await run_async(self._api.get_projects)
+        yield [projects] if isinstance(projects, Project) else projects
 
     async def get_comments(self, task_id: str) -> AsyncGenerator[list[Comment], None]:
         """Get comments for a task."""
-        paginator = await run_async(lambda: list(self._api.get_comments(task_id=task_id)))
-        for batch in paginator:
-            yield batch
+        comments = await run_async(lambda: self._api.get_comments(task_id=task_id))
+        yield [comments] if isinstance(comments, Comment) else comments
 
     async def get_all_comments(self) -> Dict[str, str]:
         """
@@ -58,23 +56,19 @@ class TodoistAsyncWrapper:
         async for tasks_batch in self.get_tasks():
             all_tasks.extend(tasks_batch)
         
-        # Create a list of tasks to get comments for
-        tasks_with_comments = []
+        # Process each task's comments
         for task in all_tasks:
-            tasks_with_comments.append(self._api.get_comments(task_id=task.id))
-        
-        # Get all comments concurrently
-        comments_lists = await run_async(lambda: [list(x) for x in tasks_with_comments])
-        
-        # Process comments to extract Notion IDs
-        for task, comments in zip(all_tasks, comments_lists):
-            for comment_batch in comments:
-                for comment in comment_batch:
-                    content = comment.content.strip()
-                    if "Notion ID:" in content:
-                        notion_id = content.replace("Notion ID:", "").strip()
-                        task_notion_map[task.id] = notion_id
-                        break  # Found the Notion ID for this task, move to next task
+            try:
+                async for comments_batch in self.get_comments(task.id):
+                    for comment in comments_batch:
+                        content = comment.content.strip()
+                        if "Notion ID:" in content:
+                            notion_id = content.replace("Notion ID:", "").strip()
+                            task_notion_map[task.id] = notion_id
+                            break  # Found the Notion ID for this task, move to next task
+            except Exception as e:
+                print(f"Error getting comments for task {task.id}: {e}")
+                continue
         
         return task_notion_map
 
