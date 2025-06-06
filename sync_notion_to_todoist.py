@@ -409,18 +409,18 @@ async def sync():
                     # Update the first task
                     first_task = matching_tasks[0]
                     try:
-                        # For update_task, we need to handle project_id and parent_id separately
-                        if 'project_id' in valid_fields:
-                            # Move the task to the new project first
-                            await todoist.move_task(task_id=first_task.id, project_id=valid_fields.pop('project_id'))
+                        # Handle project_id and parent_id updates first
+                        update_fields = valid_fields.copy()
+                        if 'project_id' in update_fields:
+                            await todoist.update_task(task_id=first_task.id, project_id=update_fields.pop('project_id'))
                         
-                        # Handle parent_id separately
-                        if 'parent_id' in valid_fields:
-                            parent_id = valid_fields.pop('parent_id')
-                            await todoist.move_task(task_id=first_task.id, parent_id=parent_id)
+                        if 'parent_id' in update_fields:
+                            await todoist.update_task(task_id=first_task.id, parent_id=update_fields.pop('parent_id'))
                         
-                        # Now update the other fields
-                        await todoist.update_task(task_id=first_task.id, **valid_fields)
+                        # Now update the other fields if any remain
+                        if update_fields:
+                            await todoist.update_task(task_id=first_task.id, **update_fields)
+                        
                         print(f"Updated task: {first_task.id} - {valid_fields.get('content')}")
                         
                         # Handle completion status
