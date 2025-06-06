@@ -166,21 +166,23 @@ async def get_todoist_project_id_map(todoist):
         print(f"Error getting projects: {e}")
         return {}
 
-async def get_notion_id_from_comments(todoist, task):
-    """Extract Notion ID from task comments if it exists"""
+async def get_or_create_from_notion_label(todoist):
+    """Get or create the 'From Notion' label"""
     try:
-        # Get comments using the async API
-        async for comments_batch in todoist.get_comments(task_id=task.id):
-            for comment in comments_batch:
-                content = comment.content.strip()
-                if "Notion ID:" in content:
-                    notion_id = content.replace("Notion ID:", "").strip()
-                    print(f"Found Notion ID: '{notion_id}' for task {task.id}")
-                    return notion_id
+        # Get all labels
+        labels = await todoist.get_labels()
+        for label in labels:
+            if label.name.lower() == "from notion":
+                print("Found existing 'From Notion' label")
+                return label.name
+        
+        # Create the label if it doesn't exist
+        label = await todoist.add_label(name="From Notion")
+        print("Created new 'From Notion' label")
+        return label.name
     except Exception as e:
-        task_id = getattr(task, 'id', 'unknown')
-        print(f"Error getting comments for task {task_id}: {e}")
-    return None
+        print(f"Error getting/creating 'From Notion' label: {e}")
+        return None
 
 async def get_notion_ids_for_tasks(todoist, tasks):
     """Get Notion IDs for multiple tasks concurrently"""
@@ -194,8 +196,24 @@ async def get_notion_ids_for_tasks(todoist, tasks):
         else:
             flat_tasks.append(task)
     
-    # Get all task-notion ID mappings at once
-    task_notion_map = await todoist.get_all_comments()
+    # Filter tasks to only those with "From Notion" label
+    notion_tasks = [task for task in flat_tasks if any(label.lower() == "from notion" for label in (task.labels or []))]
+    print(f"\nFound {len(notion_tasks)} tasks with 'From Notion' label out of {len(flat_tasks)} total tasks")
+    
+    # Get all task-notion ID mappings for filtered tasks
+    task_notion_map = {}
+    for task in notion_tasks:
+        try:
+            async for comments_batch in todoist.get_comments(task_id=task.id):
+                for comment in comments_batch:
+                    content = comment.content.strip()
+                    if "Notion ID:" in content:
+                        notion_id = content.replace("Notion ID:", "").strip()
+                        task_notion_map[task.id] = notion_id
+                        break  # Found the Notion ID for this task, move to next task
+        except Exception as e:
+            print(f"Error getting comments for task {task.id}: {e}")
+            continue
     
     # Debug print
     print("\nTask to Notion ID mapping:")
@@ -347,8 +365,13 @@ async def sync():
             project_id_map = await get_todoist_project_id_map(todoist)
             print(f"Retrieved {len(project_id_map)} projects from Todoist")
             
+            # Get or create "From Notion" label
+            from_notion_label = await get_or_create_from_notion_label(todoist)
+            if not from_notion_label:
+                print("Failed to get/create 'From Notion' label, continuing without it")
+            
             # Get all task-notion ID mappings
-            task_notion_map = await todoist.get_all_comments()
+            task_notion_map = await get_notion_ids_for_tasks(todoist, all_todoist_tasks)
             print(f"Retrieved Notion IDs for {len(task_notion_map)} tasks")
             
         except Exception as e:
@@ -368,6 +391,13 @@ async def sync():
                 if not valid_fields.get('content'):
                     print("Skipping task with no content")
                     continue
+                
+                # Add "From Notion" label if available
+                if from_notion_label:
+                    labels = valid_fields.get('labels', [])
+                    if from_notion_label not in labels:
+                        labels.append(from_notion_label)
+                    valid_fields['labels'] = labels
                 
                 # Convert project name to project_id if present
                 if 'project' in valid_fields:

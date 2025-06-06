@@ -44,6 +44,15 @@ class TodoistAsyncWrapper:
         comments = await run_async(lambda: self._api.get_comments(task_id=task_id))
         yield [comments] if isinstance(comments, Comment) else comments
 
+    async def get_labels(self) -> list[Label]:
+        """Get all labels."""
+        labels = await run_async(self._api.get_labels)
+        return [labels] if isinstance(labels, Label) else labels
+
+    async def add_label(self, name: str) -> Label:
+        """Add a new label."""
+        return await run_async(lambda: self._api.add_label(name=name))
+
     async def get_all_comments(self) -> Dict[str, str]:
         """
         Get all comments from all tasks and extract Notion IDs.
