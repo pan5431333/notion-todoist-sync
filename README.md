@@ -10,97 +10,229 @@ A Python script that synchronizes tasks between Notion and Todoist, with support
 
 ## Features
 
-- **Bidirectional Sync**: Keeps tasks in sync between Notion and Todoist
+- **Notion to Todoist Sync**: Keeps tasks in sync between Notion and Todoist
 - **Smart Field Mapping**: Configurable mapping between Notion and Todoist fields
 - **Parent-Child Tasks**: Creates parent-child relationships in Todoist based on Notion relations
 - **Rich Descriptions**: Combines multiple Notion fields into formatted Todoist descriptions
 - **Duplicate Prevention**: Prevents duplicate tasks by tracking Notion IDs
 - **Async Support**: Uses async/await for better performance
+- **Scheduled Sync**: Configurable scheduling with cron support
 
-## Setup
+## Prerequisites
 
-1. Clone the repository
-2. Install dependencies:
+- Python 3.7 or higher
+- macOS, Linux, or WSL (Windows Subsystem for Linux)
+- Access to Notion API (with integration token)
+- Access to Todoist API (with API token)
+
+## Quick Start
+
+1. Clone the repository:
    ```bash
-   pip install -r requirements.txt
-   ```
-3. Create a `.env` file with your API keys:
-   ```
-   NOTION_TOKEN=your_notion_token
-   NOTION_DATABASE_ID=your_database_id
-   TODOIST_TOKEN=your_todoist_token
-   ```
-4. Configure field mappings in `sync_config.json`:
-   ```json
-   {
-     "field_mapping": {
-       "notion_field": "todoist_field"
-     },
-     "parent_task_field": {
-       "name": "relation_field_name",
-       "create_parent": true,
-       "title_field": "title_field_name"
-     },
-     "description_fields": {
-       "enabled": true,
-       "fields": [
-         {
-           "name": "notion_field",
-           "label": "Section Label",
-           "format": "### {label}\n{value}"
-         }
-       ],
-       "separator": "\n\n"
-     }
-   }
+   git clone https://github.com/yourusername/notion-todoist-sync.git
+   cd notion-todoist-sync
    ```
 
-## Usage
+2. Install and set up the project:
+   ```bash
+   make install  # Install Poetry and dependencies
+   make setup    # Create config files
+   ```
 
-Run the sync script:
+3. Update the configuration files:
+   - `.env`: Add your API tokens
+   - `sync_config.json`: Configure field mappings
+   - `schedule_config.json`: Configure sync schedule
+
+4. Run the sync:
+   ```bash
+   make run  # Run once
+   # or
+   make schedule  # Set up scheduled sync
+   ```
+
+5. Monitor the sync:
+   ```bash
+   make logs    # View live logs
+   make status  # Check sync status
+   ```
+
+## Make Commands Reference
+
+### Setup and Installation
 ```bash
-python sync_notion_to_todoist.py
+make install   # Install Poetry and project dependencies
+make setup     # Set up config files with defaults
+make update    # Update dependencies to latest versions
 ```
 
-The script will:
-1. Fetch recently modified tasks from Notion
-2. Create or update corresponding tasks in Todoist
-3. Maintain parent-child relationships
-4. Update task descriptions and other fields
-5. Remove any duplicate tasks
+### Running and Scheduling
+```bash
+make run       # Run sync once
+make schedule  # Set up scheduled sync
+make stop      # Stop scheduled sync
+```
 
-## Requirements
+### Monitoring and Maintenance
+```bash
+make logs      # View sync logs in real-time
+make status    # Check sync and cron job status
+make clean     # Clean up generated files
+```
 
-- Python 3.7+
-- `notion-client`
-- `todoist-api-python`
-- `python-dotenv`
+### Development
+```bash
+make shell     # Spawn a shell in the virtual environment
+make check     # Run code quality checks (black, flake8, mypy)
+```
 
-## Configuration
+### Help
+```bash
+make help      # Show all available commands with descriptions
+```
 
-### Field Mapping
+## Configuration Guide
 
-Map Notion fields to Todoist fields in `sync_config.json`:
-- `content`: Task title
-- `due_date`: Due date
-- `priority`: Task priority (1-4)
-- `project`: Project name
-- `labels`: Task labels
+### Environment Variables (`.env`)
+```bash
+NOTION_TOKEN=your_notion_token           # From Notion integrations page
+NOTION_DATABASE_ID=your_database_id      # From your Notion database URL
+TODOIST_TOKEN=your_todoist_token        # From Todoist integrations settings
+```
 
-### Parent Tasks
+### Field Mapping (`sync_config.json`)
+```json
+{
+  "field_mapping": {
+    "任务名称": "content",        // Task title
+    "计划时间": "due_date",      // Due date
+    "优先级": "priority",        // Priority (1-4)
+    "项目": "project",          // Project name
+    "标签": "labels"           // Task labels
+  },
+  "parent_task_field": {
+    "name": "关联循证记录",      // Relation field for parent tasks
+    "create_parent": true,
+    "title_field": "Hypothesis" // Field to use as parent task title
+  },
+  "description_fields": {
+    "enabled": true,
+    "fields": [
+      {
+        "name": "启动动作",
+        "label": "启动动作",
+        "format": "### 启动动作\n{value}"
+      }
+    ],
+    "separator": "\n\n"
+  }
+}
+```
 
-Configure parent-child relationships:
-- `name`: Notion relation field name
-- `create_parent`: Whether to create parent tasks
-- `title_field`: Field to use as parent task title
+### Schedule Configuration (`schedule_config.json`)
+```json
+{
+  "schedule": {
+    "enabled": true,
+    "interval_minutes": 1,          // How often to sync
+    "time_window": {
+      "enabled": false,             // Optional time restriction
+      "start_time": "09:00",
+      "end_time": "18:00"
+    },
+    "max_tasks_per_run": 100,      // Limit tasks per sync
+    "log_file": "sync.log",
+    "error_notification": {
+      "enabled": false,
+      "email": ""
+    }
+  }
+}
+```
 
-### Description Fields
+## Troubleshooting
 
-Combine multiple Notion fields into the task description:
-- `enabled`: Toggle description generation
-- `fields`: List of fields to include
-- `separator`: Separator between fields
+### Common Issues
+
+1. **Sync not running on schedule**
+   ```bash
+   make status  # Check if cron job is active
+   make logs    # Check for errors in logs
+   ```
+
+2. **Missing dependencies**
+   ```bash
+   make install  # Reinstall dependencies
+   ```
+
+3. **Configuration errors**
+   ```bash
+   make setup    # Reset config files to defaults
+   ```
+
+### Logs and Debugging
+
+- View live logs: `make logs`
+- Check sync status: `make status`
+- Clean and restart: 
+  ```bash
+  make stop     # Stop sync
+  make clean    # Clean up
+  make install  # Reinstall
+  make schedule # Restart sync
+  ```
+
+## Development
+
+### Setting Up Development Environment
+
+1. Install dependencies and setup:
+   ```bash
+   make install
+   make setup
+   ```
+
+2. Start development shell:
+   ```bash
+   make shell
+   ```
+
+3. Run code quality checks:
+   ```bash
+   make check
+   ```
+
+### Project Structure
+
+```
+notion-todoist-sync/
+├── sync_notion_to_todoist.py   # Main sync logic
+├── todoist_async_wrapper.py    # Async Todoist API wrapper
+├── run_sync.py                # Sync runner with logging
+├── setup_cron.py             # Cron job setup
+├── sync_config.json          # Field mapping config
+├── schedule_config.json      # Schedule config
+├── .env                     # Environment variables
+└── Makefile                # Project commands
+```
 
 ## License
 
-MIT License 
+MIT License
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch
+3. Run checks before committing:
+   ```bash
+   make check
+   ```
+4. Submit a pull request
+
+## Support
+
+- Check `make help` for available commands
+- View logs with `make logs`
+- Check status with `make status`
+- Report issues on GitHub 
