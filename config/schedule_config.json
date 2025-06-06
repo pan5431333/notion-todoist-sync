@@ -4,11 +4,11 @@
         "interval_minutes": 1,
         "time_window": {
             "enabled": false,
-            "start_time": "09:00",
+            "start_time": "09:30",
             "end_time": "18:00"
         },
-        "max_tasks_per_run": 100,
-        "log_file": "sync.log",
+        "max_tasks_per_run": 10,
+        "log_file": "logs/sync.log",
         "error_notification": {
             "enabled": false,
             "email": ""

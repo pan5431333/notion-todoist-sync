@@ -1,0 +1,206 @@
+The "poetry.dev-dependencies" section is deprecated and will be removed in a future version. Use "poetry.group.dev.dependencies" instead.
+Warning: 'sync' is an entry point defined in pyproject.toml, but it's not installed as a script. You may get improper `sys.argv[0]`.
+
+The support to run uninstalled scripts will be removed in a future release.
+
+Run `poetry install` to resolve and get rid of this message.
+
+Starting sync script...
+Loaded environment variables
+Notion Token exists: True
+Notion Database ID exists: True
+Todoist Token exists: True
+Starting sync script...
+Loaded environment variables
+Notion Token exists: True
+Notion Database ID exists: True
+Todoist Token exists: True
+Starting sync function...
+Loaded config from sync_config.json
+Retrieved 0 tasks from Notion
+No tasks to sync from Notion
+The "poetry.dev-dependencies" section is deprecated and will be removed in a future version. Use "poetry.group.dev.dependencies" instead.
+Warning: 'sync' is an entry point defined in pyproject.toml, but it's not installed as a script. You may get improper `sys.argv[0]`.
+
+The support to run uninstalled scripts will be removed in a future release.
+
+Run `poetry install` to resolve and get rid of this message.
+
+Starting sync script...
+Loaded environment variables
+Notion Token exists: True
+Notion Database ID exists: True
+Todoist Token exists: True
+Starting sync script...
+Loaded environment variables
+Notion Token exists: True
+Notion Database ID exists: True
+Todoist Token exists: True
+Starting sync function...
+Loaded config from sync_config.json
+Retrieved 0 tasks from Notion
+No tasks to sync from Notion
+Jun  7 00:21:00  run_sync.sh[48716] <Notice>: /Users/mengpan/.zshrc: line 2: pyenv: command not found
+Jun  7 00:21:00  run_sync.sh[48716] <Notice>: /Users/mengpan/.zshrc: line 3: pyenv: command not found
+Jun  7 00:21:00  run_sync.sh[48716] <Notice>: [2025-06-07 00:21:00] Starting sync...
+Jun  7 00:21:00  run_sync.sh[48716] <Notice>: Max tasks per run: 10
+The "poetry.dev-dependencies" section is deprecated and will be removed in a future version. Use "poetry.group.dev.dependencies" instead.
+Warning: 'sync' is an entry point defined in pyproject.toml, but it's not installed as a script. You may get improper `sys.argv[0]`.
+
+The support to run uninstalled scripts will be removed in a future release.
+
+Run `poetry install` to resolve and get rid of this message.
+
+Starting sync script...
+Loaded environment variables
+Notion Token exists: True
+Notion Database ID exists: True
+Todoist Token exists: True
+Starting sync script...
+Loaded environment variables
+Notion Token exists: True
+Notion Database ID exists: True
+Todoist Token exists: True
+Starting sync function...
+Loaded config from sync_config.json
+Retrieved 1 tasks from Notion
+Retrieved 134 tasks from Todoist
+Found project: Inbox (ID: 2156180187)
+Found project: Running/Waiting (ID: 2289994025)
+Found project: Work (ID: 2156180433)
+Found project: Life [Permanent] (ID: 2156180434)
+Found project: Life [Temporary] (ID: 2156180456)
+Found project: Housework (ID: 2350330125)
+Found project: Self-daily review (ID: 2350330181)
+Available Todoist projects: ['Inbox', 'Running/Waiting', 'Work', 'Life [Permanent]', 'Life [Temporary]', 'Housework', 'Self-daily review']
+Retrieved 7 projects from Todoist
+Found existing 'From Notion' label
+
+Found 9 tasks with 'From Notion' label out of 134 total tasks
+
+Task to Notion ID mapping:
+Task 9235931143 -> Notion ID: '200e0689-40de-800a-a29f-c16e0ce54024'
+Task 9235931201 -> Notion ID: '20ae0689-40de-80d5-81fa-e78c850aace4'
+Task 9235976854 -> Notion ID: '20ae0689-40de-80f1-b179-f87ce3e7323f'
+Task 9235986560 -> Notion ID: '20ae0689-40de-80d9-b37f-ed32a0a3551f'
+Task 9235986630 -> Notion ID: '20ae0689-40de-806b-8973-dd12e79fa739'
+Task 9235986846 -> Notion ID: '1f1e0689-40de-80ee-b431-d1134867243d'
+Task 9235986879 -> Notion ID: '20ae0689-40de-80fa-8752-c848b0f5acbc'
+Task 9235986918 -> Notion ID: '150e0689-40de-80df-a486-dddbee076648'
+Task 9235986685 -> Notion ID: '1bde0689-40de-8040-b3a2-f2d1bd6e8e78'
+Retrieved Notion IDs for 9 tasks
+
+Processing Notion task: 20ae0689-40de-80f1-b179-f87ce3e7323f
+Mapping field 任务名称 (title) to content
+Mapping field 计划时间 (date) to due_date
+Mapping field 优先级 (select) to priority
+Priority mapping: Notion 3 -> Todoist 2
+Mapping field due_string_en (rich_text) to due_string
+Mapping field 项目 (select) to project
+Mapping field 标签 (multi_select) to labels
+Added description from fields: ['启动动作', 'AssignTo']
+Final mapped fields: {'content': '准备Revolut bank statement ', 'due_string': '2025-06-07', 'priority': 2, 'project': 'Life [Temporary]', 'description': '### AssignTo\n我自己'}
+Looking up project ID for: Life [Temporary]
+Found project ID: 2156180456
+
+Looking for parent task with page ID: 200e0689-40de-800a-a29f-c16e0ce54024
+Found parent page title: 去冰岛旅游 
+Found existing parent task: 去冰岛旅游 (ID: 9235931143)
+Updated parent task title to: 去冰岛旅游 
+Task will be created as subtask of: 9235931143
+
+Checking completion status:
+Field name: 是否完成
+Done value: Done
+Current status: {'id': 'pktV', 'type': 'status', 'status': {'id': '83e1d0ba-390d-4bb0-95c9-e61b45fd3f1d', 'name': 'In progress', 'color': 'blue'}}
+Task completion status: False (Notion value: In progress, Done value: Done)
+
+Found 1 tasks with Notion ID: 20ae0689-40de-80f1-b179-f87ce3e7323f
+Matching tasks:
+- Task ID: 9235976854, Content: 准备Revolut银行流水, Is Completed: False
+Error updating parent ID: 400 Client Error: Bad Request for url: https://api.todoist.com/rest/v2/tasks/9235976854
+Updated task fields: ['content', 'priority', 'description', 'labels', 'due_date']
+Updated task: 9235976854 - 准备Revolut bank statement 
+
+Sync completed. Processed 1 tasks.
+Jun  7 00:21:13  run_sync.sh[48716] <Notice>: [2025-06-07 00:21:13] Sync completed
+Jun  7 00:22:00  run_sync.sh[48756] <Notice>: /Users/mengpan/.zshrc: line 2: pyenv: command not found
+Jun  7 00:22:00  run_sync.sh[48756] <Notice>: /Users/mengpan/.zshrc: line 3: pyenv: command not found
+Jun  7 00:22:00  run_sync.sh[48756] <Notice>: [2025-06-07 00:22:00] Starting sync...
+Jun  7 00:22:00  run_sync.sh[48756] <Notice>: Max tasks per run: 10
+The "poetry.dev-dependencies" section is deprecated and will be removed in a future version. Use "poetry.group.dev.dependencies" instead.
+Warning: 'sync' is an entry point defined in pyproject.toml, but it's not installed as a script. You may get improper `sys.argv[0]`.
+
+The support to run uninstalled scripts will be removed in a future release.
+
+Run `poetry install` to resolve and get rid of this message.
+
+Starting sync script...
+Loaded environment variables
+Notion Token exists: True
+Notion Database ID exists: True
+Todoist Token exists: True
+Starting sync script...
+Loaded environment variables
+Notion Token exists: True
+Notion Database ID exists: True
+Todoist Token exists: True
+Starting sync function...
+Loaded config from sync_config.json
+Retrieved 1 tasks from Notion
+Retrieved 130 tasks from Todoist
+Found project: Inbox (ID: 2156180187)
+Found project: Running/Waiting (ID: 2289994025)
+Found project: Work (ID: 2156180433)
+Found project: Life [Permanent] (ID: 2156180434)
+Found project: Life [Temporary] (ID: 2156180456)
+Found project: Housework (ID: 2350330125)
+Found project: Self-daily review (ID: 2350330181)
+Available Todoist projects: ['Inbox', 'Running/Waiting', 'Work', 'Life [Permanent]', 'Life [Temporary]', 'Housework', 'Self-daily review']
+Retrieved 7 projects from Todoist
+Found existing 'From Notion' label
+
+Found 5 tasks with 'From Notion' label out of 130 total tasks
+
+Task to Notion ID mapping:
+Task 9235931143 -> Notion ID: '200e0689-40de-800a-a29f-c16e0ce54024'
+Task 9235931201 -> Notion ID: '20ae0689-40de-80d5-81fa-e78c850aace4'
+Task 9235976854 -> Notion ID: '20ae0689-40de-80f1-b179-f87ce3e7323f'
+Task 9235986560 -> Notion ID: '20ae0689-40de-80d9-b37f-ed32a0a3551f'
+Task 9235986630 -> Notion ID: '20ae0689-40de-806b-8973-dd12e79fa739'
+Retrieved Notion IDs for 5 tasks
+
+Processing Notion task: 20ae0689-40de-80f1-b179-f87ce3e7323f
+Mapping field 任务名称 (title) to content
+Mapping field 计划时间 (date) to due_date
+Mapping field 优先级 (select) to priority
+Priority mapping: Notion 3 -> Todoist 2
+Mapping field due_string_en (rich_text) to due_string
+Mapping field 项目 (select) to project
+Mapping field 标签 (multi_select) to labels
+Added description from fields: ['启动动作', 'AssignTo']
+Final mapped fields: {'content': '准备Revolut bank statement ', 'due_string': '2025-06-07', 'priority': 2, 'project': 'Life [Temporary]', 'description': '### AssignTo\n我自己'}
+Looking up project ID for: Life [Temporary]
+Found project ID: 2156180456
+
+Looking for parent task with page ID: 200e0689-40de-800a-a29f-c16e0ce54024
+Found parent page title: 去冰岛旅游 
+Found existing parent task: 去冰岛旅游 (ID: 9235931143)
+Updated parent task title to: 去冰岛旅游 
+Task will be created as subtask of: 9235931143
+
+Checking completion status:
+Field name: 是否完成
+Done value: Done
+Current status: {'id': 'pktV', 'type': 'status', 'status': {'id': '83e1d0ba-390d-4bb0-95c9-e61b45fd3f1d', 'name': 'In progress', 'color': 'blue'}}
+Task completion status: False (Notion value: In progress, Done value: Done)
+
+Found 1 tasks with Notion ID: 20ae0689-40de-80f1-b179-f87ce3e7323f
+Matching tasks:
+- Task ID: 9235976854, Content: 准备Revolut bank statement, Is Completed: False
+Error updating parent ID: 400 Client Error: Bad Request for url: https://api.todoist.com/rest/v2/tasks/9235976854
+Updated task fields: ['content', 'priority', 'description', 'labels', 'due_date']
+Updated task: 9235976854 - 准备Revolut bank statement 
+
+Sync completed. Processed 1 tasks.
+Jun  7 00:22:20  run_sync.sh[48756] <Notice>: [2025-06-07 00:22:20] Sync completed

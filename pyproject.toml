@@ -20,4 +20,4 @@ requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-sync = "notion_todoist_sync.run_sync:main"
+sync = "notion_todoist_sync.sync_runner:main"
