@@ -5,6 +5,9 @@ BLUE=\033[0;34m
 GREEN=\033[0;32m
 NC=\033[0m # No Color
 
+# Set up Poetry path
+POETRY_PATH=$(HOME)/.local/bin/poetry
+
 # Default target
 .DEFAULT_GOAL := help
 
@@ -19,7 +22,7 @@ install: ## Install Poetry and project dependencies
 	@echo "${GREEN}Installing Poetry...${NC}"
 	curl -sSL https://install.python-poetry.org | python3 -
 	@echo "${GREEN}Installing project dependencies...${NC}"
-	poetry install
+	$(POETRY_PATH) install
 
 setup: ## Set up the project (create config files if they don't exist)
 	@if [ ! -f .env ]; then \
@@ -37,13 +40,13 @@ setup: ## Set up the project (create config files if they don't exist)
 	fi
 	@if [ ! -f config/schedule_config.json ]; then \
 		echo "${GREEN}Creating schedule_config.json...${NC}"; \
-		echo '{ "schedule": { "enabled": true, "interval_minutes": 1, "time_window": { "enabled": false, "start_time": "09:00", "end_time": "17:00" }, "log_file": "sync.log" } }' > config/schedule_config.json; \
+		echo '{ "schedule": { "enabled": true, "interval_minutes": 1, "time_window": { "enabled": false, "start_time": "09:00", "end_time": "17:00" }, "log_file": "logs/sync.log" } }' > config/schedule_config.json; \
 		echo "Please update config/schedule_config.json with your preferences"; \
 	fi
 
 run: ## Run sync once
 	@echo "Running sync... "
-	poetry run sync
+	$(POETRY_PATH) run sync
 
 schedule: ## Schedule sync based on config/schedule_config.json
 	@echo "${GREEN}Setting up sync schedule...${NC}"
@@ -95,13 +98,13 @@ logs: ## View sync logs
 
 update: ## Update dependencies to their latest versions
 	@echo "${GREEN}Updating dependencies...${NC}"
-	poetry update
+	$(POETRY_PATH) update
 
 shell: ## Spawn a shell within the virtual environment
-	poetry shell
+	$(POETRY_PATH) shell
 
 check: ## Run all checks (format, lint, etc)
 	@echo "${GREEN}Running checks...${NC}"
-	poetry run black .
-	poetry run flake8
-	poetry run mypy . 
+	$(POETRY_PATH) run black .
+	$(POETRY_PATH) run flake8
+	$(POETRY_PATH) run mypy . 
