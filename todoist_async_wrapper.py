@@ -82,10 +82,14 @@ class TodoistAsyncWrapper:
 
     async def move_task(self, task_id: str, project_id: str = None, parent_id: str = None) -> bool:
         """Move a task to a different project and/or parent."""
-        if project_id:
-            await run_async(lambda: self._api.move_task(task_id, project_id=project_id))
-        if parent_id:
-            await run_async(lambda: self._api.move_task(task_id, parent_id=parent_id))
+        update_args = {}
+        if project_id is not None:
+            update_args['project_id'] = project_id
+        if parent_id is not None:
+            update_args['parent_id'] = parent_id
+        
+        if update_args:
+            await self.update_task(task_id, **update_args)
         return True
 
     async def delete_task(self, task_id: str) -> bool:
