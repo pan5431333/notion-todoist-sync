@@ -535,6 +535,10 @@ async def sync():
                         print(f"\nMarking task {first_task.id} as not completed (current status: {first_task.is_completed})")
                         await todoist.reopen_task(task_id=first_task.id)
                         print(f"Successfully marked task {first_task.id} as not completed")
+                    elif is_completed and first_task.is_completed:
+                        print(f"\nTask {first_task.id} is already completed, skipping updates")
+                        processed_count += 1
+                        continue  # Skip other updates if task is already completed
                     
                     # Prepare update fields
                     if "content" in valid_fields:
