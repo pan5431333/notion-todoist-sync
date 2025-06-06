@@ -85,5 +85,9 @@ async def run_sync():
             # You can implement email notification here
             pass
 
+def main():
+    """Synchronous entry point for the script"""
+    asyncio.run(run_sync())
+
 if __name__ == "__main__":
-    asyncio.run(run_sync()) 
+    main() 
