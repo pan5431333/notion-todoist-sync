@@ -42,7 +42,7 @@ setup: ## Set up the project (create config files if they don't exist)
 
 run: ## Run the sync once
 	@echo "${GREEN}Running sync...${NC}"
-	poetry run sync
+	poetry run python run_sync.py
 
 schedule: ## Set up scheduled sync using cron
 	@echo "${GREEN}Setting up scheduled sync...${NC}"
