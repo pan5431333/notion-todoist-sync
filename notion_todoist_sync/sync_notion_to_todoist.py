@@ -269,7 +269,7 @@ def get_notion_field_value(field_value):
     return None
 
 async def sync_parent_task_metadata(todoist, parent_task, child_task):
-    """Sync parent task metadata (parent ID) between tasks"""
+    """Sync parent task metadata (parent ID and due dates) between tasks"""
     try:
         # Only update if the parent ID has changed
         if child_task.parent_id != parent_task.id:
@@ -294,6 +294,26 @@ async def sync_parent_task_metadata(todoist, parent_task, child_task):
                 print("Task must be in the same project as its parent. Ensure both tasks are in the same project.")
         else:
             print(f"Parent ID already set correctly for task {child_task.id}")
+
+        # Update parent task's due date if child's due date is later
+        try:
+            child_due = getattr(child_task, 'due', None)
+            parent_due = getattr(parent_task, 'due', None)
+            
+            if child_due and child_due.date:
+                child_date = datetime.fromisoformat(child_due.date).date()
+                parent_date = datetime.fromisoformat(parent_due.date).date() if parent_due and parent_due.date else None
+                
+                if not parent_date or child_date > parent_date:
+                    print(f"\nUpdating parent task due date from {parent_date} to {child_date}")
+                    await todoist.update_task(
+                        task_id=parent_task.id,
+                        due_date=child_date.isoformat()
+                    )
+                    print(f"Successfully updated parent task due date to {child_date}")
+        except Exception as e:
+            print(f"Error updating parent task due date: {e}")
+
     except Exception as e:
         print(f"Error in sync_parent_task_metadata: {e}")
 
