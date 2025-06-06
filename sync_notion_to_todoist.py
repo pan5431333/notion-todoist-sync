@@ -396,19 +396,38 @@ async def sync():
                     done_value = completion_config["done_value"]
                     if field_name in notion_task["properties"]:
                         status = notion_task["properties"][field_name]
-                        if status["type"] == "select" and status["select"]:
-                            is_completed = status["select"]["name"] == done_value
-                            print(f"Task completion status: {is_completed} (Notion value: {status['select']['name']})")
+                        print(f"\nChecking completion status:")
+                        print(f"Field name: {field_name}")
+                        print(f"Done value: {done_value}")
+                        print(f"Current status: {status}")
+                        if status["type"] == "status" and status["status"]:
+                            current_value = status["status"]["name"]
+                            is_completed = current_value == done_value
+                            print(f"Task completion status: {is_completed} (Notion value: {current_value}, Done value: {done_value})")
                 
                 if matching_tasks:
                     print(f"\nFound {len(matching_tasks)} tasks with Notion ID: {notion_id}")
                     print("Matching tasks:")
                     for task in matching_tasks:
-                        print(f"- Task ID: {task.id}, Content: {task.content}")
+                        print(f"- Task ID: {task.id}, Content: {task.content}, Is Completed: {task.is_completed}")
                     
                     # Update the first task
                     first_task = matching_tasks[0]
                     try:
+                        # Handle completion status first
+                        if is_completed and not first_task.is_completed:
+                            print(f"\nMarking task {first_task.id} as completed (current status: {first_task.is_completed})")
+                            await todoist.close_task(task_id=first_task.id)
+                            print(f"Successfully marked task {first_task.id} as completed")
+                            processed_count += 1
+                            continue  # Skip other updates if task is completed
+                        elif not is_completed and first_task.is_completed:
+                            print(f"\nMarking task {first_task.id} as not completed (current status: {first_task.is_completed})")
+                            await todoist.reopen_task(task_id=first_task.id)
+                            print(f"Successfully marked task {first_task.id} as not completed")
+                            processed_count += 1
+                            continue  # Skip other updates if task completion status changed
+                        
                         # Handle project_id and parent_id updates first
                         update_fields = valid_fields.copy()
                         
@@ -437,16 +456,8 @@ async def sync():
                             await todoist.update_task(task_id=first_task.id, **update_fields)
                         
                         print(f"Updated task: {first_task.id} - {valid_fields.get('content')}")
-                        
-                        # Handle completion status
-                        if is_completed and not first_task.is_completed:
-                            await todoist.close_task(task_id=first_task.id)
-                            print(f"Marked task {first_task.id} as completed")
-                        elif not is_completed and first_task.is_completed:
-                            await todoist.reopen_task(task_id=first_task.id)
-                            print(f"Marked task {first_task.id} as not completed")
-                        
                         processed_count += 1
+                        
                     except Exception as e:
                         print(f"Error updating task {first_task.id}: {e}")
                     
