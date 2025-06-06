@@ -3,16 +3,24 @@
 # Set up logging
 exec 1> >(logger -s -t $(basename $0)) 2>&1
 
+# Get the directory where the script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
 # Load environment variables
 if [ -f ~/.zshrc ]; then
     source ~/.zshrc
 fi
 
-# Set up PATH
-export PATH="/Users/mengpan/.local/bin:$PATH"
+# Add Poetry to PATH if it exists in common locations
+for poetry_path in "$HOME/.local/bin" "$HOME/Library/Python/*/bin" "/usr/local/bin"; do
+    if [ -f "$poetry_path/poetry" ]; then
+        export PATH="$poetry_path:$PATH"
+        break
+    fi
+done
 
-# Change to the correct directory
-cd /Users/mengpan/Projects/notion-todoist-sync
+# Change to the script directory
+cd "$SCRIPT_DIR"
 
 # Get log file path from config
 LOG_FILE=$(python3 -c "import json; print(json.load(open('config/schedule_config.json'))['schedule']['log_file'])")
