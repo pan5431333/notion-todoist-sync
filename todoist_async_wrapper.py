@@ -46,12 +46,27 @@ class TodoistAsyncWrapper:
 
     async def get_labels(self) -> list[Label]:
         """Get all labels."""
-        labels = await run_async(self._api.get_labels)
-        return [labels] if isinstance(labels, Label) else labels
+        try:
+            labels = await run_async(self._api.get_labels)
+            # Handle both single label and list of labels
+            if isinstance(labels, Label):
+                return [labels]
+            elif isinstance(labels, list):
+                return labels
+            else:
+                print(f"Warning: Unexpected labels type: {type(labels)}")
+                return []
+        except Exception as e:
+            print(f"Error getting labels: {e}")
+            return []
 
     async def add_label(self, name: str) -> Label:
         """Add a new label."""
-        return await run_async(lambda: self._api.add_label(name=name))
+        try:
+            return await run_async(lambda: self._api.add_label(name=name))
+        except Exception as e:
+            print(f"Error adding label '{name}': {e}")
+            return None
 
     async def get_all_comments(self) -> Dict[str, str]:
         """
