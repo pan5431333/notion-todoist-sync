@@ -553,10 +553,20 @@ async def sync():
                     if "due_string" in valid_fields:
                         # Convert date string to Todoist format if needed
                         due_str = valid_fields["due_string"]
-                        if "T" in due_str:  # ISO format with time
-                            due_str = due_str.split("T")[0]  # Keep only the date part
-                        update_fields["due_date"] = due_str
-                        print(f"Setting due date to: {due_str}")
+                        # Check if it's a recurring date string
+                        recurring_patterns = ["everyday", "every day", "daily", "weekly", "monthly", "yearly"]
+                        is_recurring = any(pattern in due_str.lower() for pattern in recurring_patterns)
+                        
+                        if is_recurring:
+                            # Use due_string for recurring tasks
+                            update_fields["due_string"] = due_str
+                            print(f"Setting recurring due string to: {due_str}")
+                        else:
+                            # Use due_date for one-time tasks
+                            if "T" in due_str:  # ISO format with time
+                                due_str = due_str.split("T")[0]  # Keep only the date part
+                            update_fields["due_date"] = due_str
+                            print(f"Setting one-time due date to: {due_str}")
                     
                     if "project" in valid_fields and valid_fields["project"] in project_id_map:
                         project_id = project_id_map[valid_fields["project"]]
