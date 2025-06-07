@@ -205,20 +205,30 @@ async def get_notion_ids_for_tasks(todoist, tasks):
     notion_tasks = [task for task in flat_tasks if any(label.lower() == "from notion" for label in (task.labels or []))]
     print(f"\nFound {len(notion_tasks)} tasks with 'From Notion' label out of {len(flat_tasks)} total tasks")
     
-    # Get all task-notion ID mappings for filtered tasks
+    # Get all task-notion ID mappings for filtered tasks concurrently
     task_notion_map = {}
-    for task in notion_tasks:
+    
+    async def get_task_notion_id(task):
+        """Helper function to get Notion ID for a single task"""
         try:
             comments = await todoist.get_comments(task_id=task.id)
             for comment in comments:
                 content = comment.content.strip()
                 if "Notion ID:" in content:
                     notion_id = content.replace("Notion ID:", "").strip()
-                    task_notion_map[task.id] = notion_id
-                    break  # Found the Notion ID for this task, move to next task
+                    return task.id, notion_id
+            return task.id, None
         except Exception as e:
             print(f"Error getting comments for task {task.id}: {e}")
-            continue
+            return task.id, None
+    
+    # Gather all comment fetching coroutines
+    results = await asyncio.gather(*[get_task_notion_id(task) for task in notion_tasks])
+    
+    # Process results
+    for task_id, notion_id in results:
+        if notion_id:
+            task_notion_map[task_id] = notion_id
     
     # Debug print
     print("\nTask to Notion ID mapping:")
