@@ -67,11 +67,9 @@ def map_notion_to_todoist(notion_task, config):
             elif value["type"] == "date":
                 if value["date"]:
                     date_str = value["date"]["start"]
-                    # Convert Notion date to Todoist due_string format
+                    # Map date field to due_date as fallback
                     if todoist_field == "due_date":
-                        todoist_fields["due_string"] = date_str
-                    else:
-                        todoist_fields[todoist_field] = date_str
+                        todoist_fields["due_date"] = date_str
             elif value["type"] == "select":
                 if value["select"]:
                     # Convert priority strings to integers (3 -> 2, 2 -> 3, 1 -> 4)
@@ -91,9 +89,16 @@ def map_notion_to_todoist(notion_task, config):
                     else:
                         todoist_fields[todoist_field] = value["select"]["name"]
             elif value["type"] == "rich_text":
-                # Handle rich text fields (for project)
+                # Handle rich text fields (for project and due string)
                 if value["rich_text"]:
-                    todoist_fields[todoist_field] = value["rich_text"][0]["plain_text"]
+                    text_value = value["rich_text"][0]["plain_text"]
+                    if todoist_field == "due_string":
+                        # Prioritize due_string over due_date
+                        todoist_fields["due_string"] = text_value
+                        # Remove due_date if due_string is set
+                        todoist_fields.pop("due_date", None)
+                    else:
+                        todoist_fields[todoist_field] = text_value
                     if todoist_field == "project":
                         print(f"Project from Notion: {todoist_fields[todoist_field]}")
             elif value["type"] == "multi_select":
@@ -540,7 +545,19 @@ async def sync():
                         processed_count += 1
                         continue  # Skip other updates if task is already completed
                     
-                    # Prepare update fields
+                    # Handle due dates
+                    if "due_string" in valid_fields:
+                        # Always use due_string if it's available
+                        update_fields["due_string"] = valid_fields["due_string"]
+                        print(f"Setting due string to: {valid_fields['due_string']}")
+                    elif "due_date" in valid_fields:
+                        # Fall back to due_date if no due_string is available
+                        due_str = valid_fields["due_date"]
+                        if "T" in due_str:  # ISO format with time
+                            due_str = due_str.split("T")[0]  # Keep only the date part
+                        update_fields["due_date"] = due_str
+                        print(f"Setting due date to: {due_str}")
+                    
                     if "content" in valid_fields:
                         update_fields["content"] = valid_fields["content"]
                     
@@ -549,24 +566,6 @@ async def sync():
                     
                     if "priority" in valid_fields:
                         update_fields["priority"] = valid_fields["priority"]
-                    
-                    if "due_string" in valid_fields:
-                        # Convert date string to Todoist format if needed
-                        due_str = valid_fields["due_string"]
-                        # Check if it's a recurring date string
-                        recurring_patterns = ["everyday", "every day", "daily", "weekly", "monthly", "yearly"]
-                        is_recurring = any(pattern in due_str.lower() for pattern in recurring_patterns)
-                        
-                        if is_recurring:
-                            # Use due_string for recurring tasks
-                            update_fields["due_string"] = due_str
-                            print(f"Setting recurring due string to: {due_str}")
-                        else:
-                            # Use due_date for one-time tasks
-                            if "T" in due_str:  # ISO format with time
-                                due_str = due_str.split("T")[0]  # Keep only the date part
-                            update_fields["due_date"] = due_str
-                            print(f"Setting one-time due date to: {due_str}")
                     
                     if "project" in valid_fields and valid_fields["project"] in project_id_map:
                         project_id = project_id_map[valid_fields["project"]]
