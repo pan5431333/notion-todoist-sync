@@ -424,10 +424,15 @@ async def process_notion_task(notion_task, notion, todoist, config, project_id_m
         todoist_fields = map_notion_to_todoist(notion_task, config)
         
         # Look up project ID if needed
+        project_id = None
         if "project" in todoist_fields:
-            project_name = todoist_fields["project"]
+            project_name = todoist_fields.pop("project")  # Remove project name and store project_id instead
             if project_name in project_id_map:
-                todoist_fields["project_id"] = project_id_map[project_name]
+                project_id = project_id_map[project_name]
+                todoist_fields["project_id"] = project_id
+                print(f"Mapped project '{project_name}' to ID: {project_id}")
+            else:
+                print(f"Warning: Project '{project_name}' not found in Todoist")
         
         # Get or create parent task if needed
         parent_task = None
@@ -455,8 +460,8 @@ async def process_notion_task(notion_task, notion, todoist, config, project_id_m
                 create_fields = todoist_fields.copy()
                 if parent_task:
                     create_fields["parent_id"] = parent_task.id
-                if "project" in create_fields and create_fields["project"] in project_id_map:
-                    create_fields["project_id"] = project_id_map[create_fields.pop("project")]
+                if project_id:  # Use the project_id we got earlier
+                    create_fields["project_id"] = project_id
                 if "labels" in create_fields and from_notion_label:
                     if from_notion_label not in create_fields["labels"]:
                         create_fields["labels"].append(from_notion_label)
@@ -500,10 +505,10 @@ async def process_notion_task(notion_task, notion, todoist, config, project_id_m
                     if field in todoist_fields:
                         update_fields[field] = todoist_fields[field]
                 
-                if "project" in todoist_fields and todoist_fields["project"] in project_id_map:
-                    project_id = project_id_map[todoist_fields["project"]]
-                    if project_id != first_task.project_id:
-                        update_fields["project_id"] = project_id
+                # Handle project update
+                if project_id is not None and project_id != first_task.project_id:
+                    update_fields["project_id"] = project_id
+                    print(f"Updating task {first_task.id} project to: {project_id}")
                 
                 if "labels" in todoist_fields:
                     labels = todoist_fields["labels"]
