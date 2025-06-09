@@ -433,7 +433,13 @@ async def process_notion_task_with_parents(notion_task, notion, todoist, config,
         matching_tasks = await find_tasks_by_notion_id(todoist, cached_todoist_tasks, notion_id, task_notion_map)
         
         if not matching_tasks:
-            # Create new task
+            # If the Notion task is completed and we don't find any matching Todoist tasks,
+            # do nothing - the task might already be completed in Todoist (and thus not returned by get_tasks())
+            if is_completed:
+                print(f"Notion task {notion_id} is completed but no matching Todoist task found - doing nothing")
+                return 1
+            
+            # Create new task only if the Notion task is not completed
             try:
                 create_fields = todoist_fields.copy()
                 if parent_task_id:
