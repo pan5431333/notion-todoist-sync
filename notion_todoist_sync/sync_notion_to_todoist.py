@@ -901,11 +901,16 @@ class SyncService:
         return update_fields
 
 
-async def main():
-    """Main entry point"""
+async def sync():
+    """Standalone sync function for backward compatibility"""
     config = Configuration()
     sync_service = SyncService(config)
     await sync_service.sync()
+
+
+async def main():
+    """Main entry point"""
+    await sync()
 
 
 if __name__ == "__main__":
