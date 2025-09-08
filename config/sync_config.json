@@ -16,17 +16,22 @@
     "enabled": true,
     "fields": [
       {
+        "name": "目标",
+        "label": "目标",
+        "format": "### 目标: {value}"
+      },
+      {
         "name": "启动动作",
         "label": "启动动作",
-        "format": "### 启动动作\n{value}"
+        "format": "### 启动动作: {value}"
       },
       {
         "name": "AssignTo",
         "label": "AssignTo",
-        "format": "### AssignTo\n{value}"
+        "format": "### AssignTo: {value}"
       }
     ],
-    "separator": "\n\n"
+    "separator": "\n"
   },
   "completion_field": {
     "name": "是否完成",
