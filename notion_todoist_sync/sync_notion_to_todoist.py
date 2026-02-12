@@ -976,18 +976,25 @@ class SyncService:
             return 1
 
         try:
+            from datetime import datetime
             create_fields = todoist_fields.copy()
             if parent_task_id:
                 create_fields["parent_id"] = parent_task_id
 
-            # Handle due dates - convert due_date string to due_string to avoid API issues
+            # Handle due dates - convert due_date string to datetime.date object
             if "due_string" not in create_fields and "due_date" in create_fields:
                 due_value = create_fields.pop("due_date")
                 if isinstance(due_value, str):
-                    # Convert due_date to due_string since the API handles strings better
+                    # Extract date part if it includes time
                     if "T" in due_value:
                         due_value = due_value.split("T")[0]
-                    create_fields["due_string"] = due_value
+                    # Convert string to datetime.date object for the API
+                    try:
+                        due_date_obj = datetime.strptime(due_value, "%Y-%m-%d").date()
+                        create_fields["due_date"] = due_date_obj
+                    except ValueError:
+                        # If parsing fails, fall back to due_string
+                        create_fields["due_string"] = due_value
 
             # Ensure From Notion label is added
             if "labels" not in create_fields:
@@ -1046,8 +1053,9 @@ class SyncService:
     
     def _prepare_update_fields(self, task: Any, todoist_fields: Dict[str, Any]) -> Dict[str, Any]:
         """Prepare fields for updating a task"""
+        from datetime import datetime
         update_fields = {}
-        
+
         # Handle due dates
         if "due_string" in todoist_fields:
             update_fields["due_string"] = todoist_fields["due_string"]
@@ -1055,7 +1063,13 @@ class SyncService:
             due_str = todoist_fields["due_date"]
             if "T" in due_str:  # ISO format with time
                 due_str = due_str.split("T")[0]  # Keep only the date part
-            update_fields["due_date"] = due_str
+            # Convert string to datetime.date object for the API
+            try:
+                due_date_obj = datetime.strptime(due_str, "%Y-%m-%d").date()
+                update_fields["due_date"] = due_date_obj
+            except ValueError:
+                # If parsing fails, fall back to due_string
+                update_fields["due_string"] = due_str
         
         # Handle other fields
         for field in ["content", "description", "priority"]:
