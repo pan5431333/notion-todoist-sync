@@ -3,6 +3,100 @@ import json
 import asyncio
 import datetime
 from typing import Dict, List, Optional, Any, Tuple
+
+def _patch_todoist_api():
+    """Lazy patch Todoist API to work with new unified API v1"""
+    try:
+        import todoist_api_python.endpoints
+        import todoist_api_python.http_requests
+        import todoist_api_python.models
+        from urllib.parse import urljoin
+        
+        # Patch endpoint to use /api/v1/ instead of /rest/v2/
+        todoist_api_python.endpoints.REST_API = urljoin(
+            todoist_api_python.endpoints.BASE_URL, "/api/v1/"
+        )
+        
+        # Patch http_requests to handle the new API response format
+        _original_get = todoist_api_python.http_requests.get
+        _original_post = todoist_api_python.http_requests.post
+        
+        def _patch_get(*args, **kwargs):
+            result = _original_get(*args, **kwargs)
+            if isinstance(result, dict) and 'results' in result:
+                return result['results']
+            return result
+        
+        def _patch_post(*args, **kwargs):
+            result = _original_post(*args, **kwargs)
+            if isinstance(result, dict) and 'results' in result:
+                if len(result) == 1:
+                    return result['results']
+                results = result['results']
+                if len(results) == 1:
+                    return results[0]
+                return results
+            return result
+        
+        todoist_api_python.http_requests.get = _patch_get
+        todoist_api_python.http_requests.post = _patch_post
+        
+        # Patch Project.from_dict
+        _original_project_from_dict = todoist_api_python.models.Project.from_dict
+        
+        def _patched_project_from_dict(cls, obj: dict):
+            mapped_obj = obj.copy()
+            if 'child_order' in mapped_obj and 'order' not in mapped_obj:
+                mapped_obj['order'] = mapped_obj['child_order']
+            if 'comment_count' not in mapped_obj:
+                mapped_obj['comment_count'] = 0
+            if 'url' not in mapped_obj:
+                mapped_obj['url'] = f"https://todoist.com/app/project/{mapped_obj.get('id', '')}"
+            if 'inbox_project' in mapped_obj and 'is_inbox_project' not in mapped_obj:
+                mapped_obj['is_inbox_project'] = mapped_obj['inbox_project']
+            if 'is_team_inbox' not in mapped_obj:
+                mapped_obj['is_team_inbox'] = None
+            return _original_project_from_dict(mapped_obj)
+        
+        todoist_api_python.models.Project.from_dict = classmethod(_patched_project_from_dict)
+        
+        # Patch Task.from_dict
+        _original_task_from_dict = todoist_api_python.models.Task.from_dict
+        
+        def _patched_task_from_dict(cls, obj: dict):
+            mapped_obj = obj.copy()
+            if 'added_at' in mapped_obj and 'created_at' not in mapped_obj:
+                mapped_obj['created_at'] = mapped_obj['added_at']
+            if 'added_by_uid' in mapped_obj and 'creator_id' not in mapped_obj:
+                mapped_obj['creator_id'] = mapped_obj['added_by_uid']
+            if 'checked' in mapped_obj and 'is_completed' not in mapped_obj:
+                mapped_obj['is_completed'] = mapped_obj['checked']
+            if 'child_order' in mapped_obj and 'order' not in mapped_obj:
+                mapped_obj['order'] = mapped_obj['child_order']
+            if 'note_count' in mapped_obj and 'comment_count' not in mapped_obj:
+                mapped_obj['comment_count'] = mapped_obj['note_count']
+            elif 'comment_count' not in mapped_obj:
+                mapped_obj['comment_count'] = 0
+            if 'url' not in mapped_obj:
+                task_id = mapped_obj.get('id', '')
+                sync_id = mapped_obj.get('sync_id', '')
+                if sync_id:
+                    from todoist_api_python.utils import get_url_for_task
+                    mapped_obj['url'] = get_url_for_task(task_id, sync_id)
+                else:
+                    mapped_obj['url'] = f"https://todoist.com/app/task/{task_id}"
+            if 'project_id' not in mapped_obj:
+                mapped_obj['project_id'] = mapped_obj.get('project_id') or ''
+            return _original_task_from_dict(mapped_obj)
+        
+        todoist_api_python.models.Task.from_dict = classmethod(_patched_task_from_dict)
+    except ImportError:
+        # If imports fail, the patches will be applied when TodoistAPIAsync is first used
+        pass
+
+# Apply patches before importing TodoistAPIAsync
+_patch_todoist_api()
+
 from notion_client import Client as NotionClient
 from todoist_api_python.api_async import TodoistAPIAsync
 from dotenv import load_dotenv
@@ -138,6 +232,8 @@ class TodoistService:
     """Handles all Todoist-related operations"""
     
     def __init__(self, config: Configuration):
+        # Ensure API patches are applied
+        _patch_todoist_api()
         self.client = TodoistAPIAsync(config.todoist_token)
         self._project_id_map = {}
         self._from_notion_label = None
@@ -151,7 +247,27 @@ class TodoistService:
         """Get a mapping of project names to their IDs"""
         try:
             project_map = {}
-            projects = await self.client.get_projects()
+            projects_result = await self.client.get_projects()
+            
+            # Handle pagination - consume all pages
+            projects = []
+            if hasattr(projects_result, '__aiter__'):
+                # It's an async generator/iterator
+                async for page in projects_result:
+                    if isinstance(page, list):
+                        projects.extend(page)
+                    else:
+                        projects.append(page)
+            elif hasattr(projects_result, '__iter__') and not isinstance(projects_result, (list, str)):
+                # It's a sync iterator/paginator
+                for page in projects_result:
+                    if isinstance(page, list):
+                        projects.extend(page)
+                    else:
+                        projects.append(page)
+            else:
+                # It's already a list
+                projects = projects_result if isinstance(projects_result, list) else [projects_result]
             
             for project in projects:
                 try:
@@ -170,7 +286,25 @@ class TodoistService:
     async def _get_or_create_from_notion_label(self) -> Optional[str]:
         """Get or create the 'From Notion' label"""
         try:
-            labels = await self.client.get_labels()
+            labels_result = await self.client.get_labels()
+            
+            # Handle pagination
+            labels = []
+            if hasattr(labels_result, '__aiter__'):
+                async for page in labels_result:
+                    if isinstance(page, list):
+                        labels.extend(page)
+                    else:
+                        labels.append(page)
+            elif hasattr(labels_result, '__iter__') and not isinstance(labels_result, (list, str)):
+                for page in labels_result:
+                    if isinstance(page, list):
+                        labels.extend(page)
+                    else:
+                        labels.append(page)
+            else:
+                labels = labels_result if isinstance(labels_result, list) else [labels_result]
+            
             for label in labels:
                 if label.name.lower() == "from notion":
                     print("Found existing 'From Notion' label")
@@ -185,7 +319,26 @@ class TodoistService:
     
     async def get_tasks(self) -> List[Any]:
         """Get all Todoist tasks"""
-        return await self.client.get_tasks()
+        tasks_result = await self.client.get_tasks()
+        
+        # Handle pagination
+        tasks = []
+        if hasattr(tasks_result, '__aiter__'):
+            async for page in tasks_result:
+                if isinstance(page, list):
+                    tasks.extend(page)
+                else:
+                    tasks.append(page)
+        elif hasattr(tasks_result, '__iter__') and not isinstance(tasks_result, (list, str)):
+            for page in tasks_result:
+                if isinstance(page, list):
+                    tasks.extend(page)
+                else:
+                    tasks.append(page)
+        else:
+            tasks = tasks_result if isinstance(tasks_result, list) else [tasks_result]
+        
+        return tasks
     
     async def get_notion_ids_for_tasks(self, tasks: List[Any]) -> Dict[str, str]:
         """Get Notion IDs for multiple tasks concurrently"""
@@ -195,7 +348,25 @@ class TodoistService:
         
         async def get_task_notion_id(task):
             try:
-                comments = await self.client.get_comments(task_id=task.id)
+                comments_result = await self.client.get_comments(task_id=task.id)
+                
+                # Handle pagination
+                comments = []
+                if hasattr(comments_result, '__aiter__'):
+                    async for page in comments_result:
+                        if isinstance(page, list):
+                            comments.extend(page)
+                        else:
+                            comments.append(page)
+                elif hasattr(comments_result, '__iter__') and not isinstance(comments_result, (list, str)):
+                    for page in comments_result:
+                        if isinstance(page, list):
+                            comments.extend(page)
+                        else:
+                            comments.append(page)
+                else:
+                    comments = comments_result if isinstance(comments_result, list) else [comments_result]
+                
                 for comment in comments:
                     content = comment.content.strip()
                     if "Notion ID:" in content:
@@ -797,24 +968,33 @@ class SyncService:
                     return parent_task_id
         return None
     
-    async def _create_new_task(self, notion_id: str, todoist_fields: Dict[str, Any], 
+    async def _create_new_task(self, notion_id: str, todoist_fields: Dict[str, Any],
                              parent_task_id: Optional[str], is_completed: bool) -> int:
         """Create a new Todoist task"""
         if is_completed:
             print(f"Notion task {notion_id} is completed but no matching Todoist task found - doing nothing")
             return 1
-        
+
         try:
             create_fields = todoist_fields.copy()
             if parent_task_id:
                 create_fields["parent_id"] = parent_task_id
-            
+
+            # Handle due dates - convert due_date string to due_string to avoid API issues
+            if "due_string" not in create_fields and "due_date" in create_fields:
+                due_value = create_fields.pop("due_date")
+                if isinstance(due_value, str):
+                    # Convert due_date to due_string since the API handles strings better
+                    if "T" in due_value:
+                        due_value = due_value.split("T")[0]
+                    create_fields["due_string"] = due_value
+
             # Ensure From Notion label is added
             if "labels" not in create_fields:
                 create_fields["labels"] = []
             if self.todoist_service.from_notion_label and self.todoist_service.from_notion_label not in create_fields["labels"]:
                 create_fields["labels"].append(self.todoist_service.from_notion_label)
-            
+
             task = await self.todoist_service.create_task(**create_fields)
             await self.todoist_service.add_comment(task.id, f"Notion ID: {notion_id}")
             print(f"Created new task {task.id} from Notion task {notion_id}")
