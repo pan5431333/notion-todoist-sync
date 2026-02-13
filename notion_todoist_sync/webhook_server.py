@@ -79,6 +79,11 @@ async def notion_webhook_events(request: Request):
     import json
     event_data = json.loads(body.decode())
 
+    # Handle verification token (used during Notion webhook setup)
+    if "verification_token" in event_data:
+        print(f"VERIFICATION TOKEN: {event_data['verification_token']}", flush=True)
+        return {"status": "accepted"}
+
     # Validate event structure
     if "type" not in event_data or "id" not in event_data:
         return {"status": "error", "detail": "Invalid event structure"}
