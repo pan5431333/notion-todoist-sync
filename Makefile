@@ -48,6 +48,9 @@ run: ## Run sync once
 	@echo "Running sync... "
 	$(POETRY_PATH) run sync
 
+webhook: ## Start the webhook server for real-time bidirectional sync
+	$(POETRY_PATH) run python -m notion_todoist_sync.webhook_server
+
 schedule: ## Schedule sync based on config/schedule_config.json
 	@echo "${GREEN}Setting up sync schedule...${NC}"
 	@python3 notion_todoist_sync/scheduler.py

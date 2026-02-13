@@ -9,6 +9,11 @@ python = "^3.9"
 notion-client = "^2.0.0"
 todoist-api-python = "^3.2.1"
 python-dotenv = "^1.0.0"
+fastapi = "^0.104.0"
+uvicorn = {extras = ["standard"], version = "^0.24.0"}
+aiohttp = "^3.9.0"
+pydantic = "^2.5.0"
+pydantic-settings = "^2.1.0"
 
 [tool.poetry.dev-dependencies]
 black = "^23.3.0"
@@ -21,3 +26,4 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 sync = "notion_todoist_sync.sync_runner:main"
+webhook-server = "notion_todoist_sync.webhook_server:main"

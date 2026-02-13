@@ -1,0 +1,38 @@
+The "poetry.dev-dependencies" section is deprecated and will be removed in a future version. Use "poetry.group.dev.dependencies" instead.
+INFO:     Started server process [33932]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+Starting webhook server on 0.0.0.0:8000
+Starting webhook server...
+Loaded environment variables
+Notion Token exists: True
+Notion Database ID exists: True
+Todoist Token exists: True
+Found project: Inbox (ID: 6Crg2c4j55gC67h9)
+Found project: Work (ID: 6Crg2c4j5v8M5Wq6)
+Found project: Life [Permanent] (ID: 6Crg2c4j62wpcrCp)
+Found project: Life [Temporary] (ID: 6Crg2c4j66J3HGJJ)
+Found project: Housework (ID: 6XRqPfjmRx33v7wm)
+Found project: Self-daily review (ID: 6XRqPq7FjvwcfFX4)
+Found project: Lifestyle habits (ID: 6cw7r343wqXjFRXx)
+Available Todoist projects: ['Inbox', 'Work', 'Life [Permanent]', 'Life [Temporary]', 'Housework', 'Self-daily review', 'Lifestyle habits']
+Found existing 'From Notion' label
+Sync orchestrator initialized
+Error: WEBHOOK_URL not configured for Todoist webhooks
+Error: WEBHOOK_URL not configured for Notion webhooks
+Webhooks registered
+Orchestrator started
+Webhook server started
+INFO:     127.0.0.1:50807 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50820 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51020 - "GET /webhooks/notion?challenge=test123 HTTP/1.1" 200 OK
+INFO:     44.238.170.230:0 - "POST /webhooks/notion HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [33932]
+Shutting down webhook server...
+Webhooks unregistered
+Orchestrator stopped
+Webhook server stopped

@@ -36,5 +36,10 @@
   "completion_field": {
     "name": "是否完成",
     "done_value": "Done"
+  },
+  "bidirectional_sync": {
+    "enabled": true,
+    "conflict_resolution": "last_modified_wins",
+    "sync_deletions": false
   }
 }

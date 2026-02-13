@@ -1,0 +1,13 @@
+{
+  "webhooks": {
+    "enabled": true,
+    "todoist": {
+      "enabled": true,
+      "secret": "3518e3cc114a5c7775ade3121c174fbb8a66950caf84b35ffc71f481483dac86"
+    },
+    "notion": {
+      "enabled": true,
+      "secret": "689272a10df089c78da5120c8bdcf6196fb9f9616aa695d01a73d622ff9e66c4"
+    }
+  }
+}
