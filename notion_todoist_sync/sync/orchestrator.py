@@ -89,11 +89,6 @@ class SyncOrchestrator:
         nr.set_sync_engine(self.sync_engine)
         nr.set_event_callback(self.queue_sync_event)
 
-        # Register webhooks
-        if self.config.webhook_enabled:
-            await self.webhook_manager.register_all_webhooks()
-            print("Webhooks registered")
-
         # Start event processor
         self._is_running = True
         self._event_processor_task = asyncio.create_task(self._process_event_queue())
@@ -113,11 +108,6 @@ class SyncOrchestrator:
                 await self._event_processor_task
             except asyncio.CancelledError:
                 pass
-
-        # Unregister webhooks
-        if self.config.webhook_enabled:
-            await self.webhook_manager.unregister_all_webhooks()
-            print("Webhooks unregistered")
 
         print("Orchestrator stopped")
 
