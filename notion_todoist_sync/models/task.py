@@ -85,6 +85,7 @@ class TodoistTask:
     is_completed: bool = False
     created_at: Optional[datetime] = None
     due_string: Optional[str] = None
+    is_recurring: bool = False
 
     @classmethod
     def from_dict(cls, data: Any) -> "TodoistTask":
@@ -92,11 +93,14 @@ class TodoistTask:
         # Extract due information
         due_date = None
         due_string = None
+        is_recurring = False
         if hasattr(data, 'due') and data.due:
             if hasattr(data.due, 'date'):
                 due_date = data.due.date
             if hasattr(data.due, 'string'):
                 due_string = data.due.string
+            if hasattr(data.due, 'is_recurring'):
+                is_recurring = bool(data.due.is_recurring)
 
         # Extract created timestamp
         created_at = None
@@ -148,6 +152,7 @@ class TodoistTask:
             parent_id=parent_id,
             is_completed=is_completed,
             created_at=created_at,
+            is_recurring=is_recurring,
         )
 
     def to_dict(self) -> Dict[str, Any]:

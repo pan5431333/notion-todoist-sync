@@ -1,5 +1,6 @@
 """Sync orchestrator for coordinating webhook events and sync"""
 import asyncio
+import time
 from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
 
@@ -48,6 +49,11 @@ class SyncOrchestrator:
 
         # Initialize webhook manager
         self.webhook_manager = WebhookManager(self.config, self.todoist_repo)
+
+        # Echo suppression: tracks entities we just wrote to
+        # Key: "notion:{page_id}" or "todoist:{task_id}", Value: time.monotonic() timestamp
+        self._recently_synced: Dict[str, float] = {}
+        self._echo_ttl = 10.0  # seconds
 
         # Event queue
         self._event_queue: asyncio.Queue = asyncio.Queue()
@@ -143,6 +149,21 @@ class SyncOrchestrator:
             except Exception as e:
                 print(f"Error processing event: {e}")
 
+    def _mark_recently_synced(self, key: str):
+        """Mark an entity as recently written to for echo suppression"""
+        self._recently_synced[key] = time.monotonic()
+
+    def _is_echo(self, key: str) -> bool:
+        """Check if an event is an echo of a recent sync (one-shot: consumes the entry)"""
+        timestamp = self._recently_synced.pop(key, None)
+        if timestamp is None:
+            return False
+        elapsed = time.monotonic() - timestamp
+        if elapsed <= self._echo_ttl:
+            print(f"Echo suppressed for {key} (elapsed {elapsed:.1f}s)")
+            return True
+        return False
+
     async def _process_todoist_event(self, event_type: str, data: Dict[str, Any]):
         """Process a Todoist event"""
         self._stats["todoist_events_processed"] += 1
@@ -150,6 +171,10 @@ class SyncOrchestrator:
 
         task_id = data.get("task_id")
         if not task_id:
+            return
+
+        # Check for echo
+        if self._is_echo(f"todoist:{task_id}"):
             return
 
         try:
@@ -166,7 +191,9 @@ class SyncOrchestrator:
                         print(f"Skipping deletion sync (sync_deletions=false)")
             else:
                 # Sync the task
-                await self.sync_engine.sync_task_from_todoist(task_id)
+                notion_id = await self.sync_engine.sync_task_from_todoist(task_id)
+                if notion_id:
+                    self._mark_recently_synced(f"notion:{notion_id}")
 
         except Exception as e:
             print(f"Error processing Todoist event {event_type}: {e}")
@@ -180,6 +207,10 @@ class SyncOrchestrator:
 
         page_id = data.get("page_id")
         if not page_id:
+            return
+
+        # Check for echo
+        if self._is_echo(f"notion:{page_id}"):
             return
 
         try:
@@ -198,7 +229,9 @@ class SyncOrchestrator:
                     print(f"Skipping deletion sync (sync_deletions=false)")
             else:
                 # Sync the page
-                await self.sync_engine.sync_task_from_notion(page_id)
+                todoist_id = await self.sync_engine.sync_task_from_notion(page_id)
+                if todoist_id:
+                    self._mark_recently_synced(f"todoist:{todoist_id}")
 
         except Exception as e:
             print(f"Error processing Notion event {event_type}: {e}")

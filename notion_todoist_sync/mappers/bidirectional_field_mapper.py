@@ -111,8 +111,11 @@ class BidirectionalFieldMapper:
         elif todoist_field == "description":
             return todoist_task.description
 
-        elif todoist_field == "due_date" or todoist_field == "due_string":
-            return todoist_task.due_date or todoist_task.due_string
+        elif todoist_field == "due_date":
+            return todoist_task.due_date
+
+        elif todoist_field == "due_string":
+            return todoist_task.due_string
 
         elif todoist_field == "priority":
             return self._reverse_map_priority(todoist_task.priority)

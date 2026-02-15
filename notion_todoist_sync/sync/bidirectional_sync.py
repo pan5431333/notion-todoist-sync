@@ -30,11 +30,11 @@ class BidirectionalSyncEngine:
         self.mapper = mapper
         self.conflict_resolver = ConflictResolver(conflict_strategy)
 
-    async def sync_task_from_notion(self, notion_page_id: str) -> bool:
+    async def sync_task_from_notion(self, notion_page_id: str) -> Optional[str]:
         """
         Sync a task from Notion to Todoist.
 
-        Returns True if sync was successful, False otherwise.
+        Returns the Todoist task ID on success, None on failure.
         """
         try:
             # Get Notion task
@@ -64,7 +64,7 @@ class BidirectionalSyncEngine:
                         notion_page_id,
                         notion_last_edited=str(notion_task.last_edited_time) if notion_task.last_edited_time else None
                     )
-                    return False
+                    return None
 
             # Map Notion to Todoist
             todoist_fields = self.mapper.map_notion_to_todoist(notion_page)
@@ -95,7 +95,7 @@ class BidirectionalSyncEngine:
                 # Create new task - content is required
                 if "content" not in todoist_fields or not todoist_fields["content"]:
                     print(f"Skipping Notion task {notion_page_id}: no content/title mapped")
-                    return False
+                    return None
                 task = await self.todoist_repo.create_task(**todoist_fields)
                 await self.todoist_repo.add_comment(task.id, f"Notion ID: {notion_page_id}")
                 print(f"Created new task {task.id} from Notion {notion_page_id}")
@@ -117,25 +117,26 @@ class BidirectionalSyncEngine:
                             print(f"Updated task {todoist_task.id}")
 
             # Update sync state
+            result_todoist_id = todoist_task.id if todoist_task else task.id
             self.sync_state_repo.upsert(
                 notion_page_id,
-                todoist_task.id if todoist_task else task.id,
+                result_todoist_id,
                 notion_last_edited=str(notion_task.last_edited_time) if notion_task.last_edited_time else None,
                 sync_direction="notion_to_todoist"
             )
 
-            return True
+            return result_todoist_id
 
         except Exception as e:
             print(f"Error syncing Notion task {notion_page_id}: {e}")
             traceback.print_exc()
-            return False
+            return None
 
-    async def sync_task_from_todoist(self, todoist_task_id: str) -> bool:
+    async def sync_task_from_todoist(self, todoist_task_id: str) -> Optional[str]:
         """
         Sync a task from Todoist to Notion.
 
-        Returns True if sync was successful, False otherwise.
+        Returns the Notion page ID on success, None on failure.
         """
         try:
             # Get Todoist task
@@ -146,7 +147,7 @@ class BidirectionalSyncEngine:
             notion_id = await self._get_notion_id_from_todoist_task(todoist_task_id)
             if not notion_id:
                 print(f"No Notion ID found for Todoist task {todoist_task_id}")
-                return False
+                return None
 
             # Get existing Notion task
             notion_page = self.notion_repo.get_page(notion_id)
@@ -168,7 +169,7 @@ class BidirectionalSyncEngine:
                         notion_id,
                         todoist_last_edited=str(todoist_task.created_at) if todoist_task.created_at else None
                     )
-                    return False
+                    return None
 
             # Map Todoist to Notion
             notion_fields = self.mapper.map_todoist_to_notion(todoist_task)
@@ -206,12 +207,12 @@ class BidirectionalSyncEngine:
                 sync_direction="todoist_to_notion"
             )
 
-            return True
+            return notion_id
 
         except Exception as e:
             print(f"Error syncing Todoist task {todoist_task_id}: {e}")
             traceback.print_exc()
-            return False
+            return None
 
     def _has_conflict(
         self,
@@ -306,14 +307,39 @@ class BidirectionalSyncEngine:
                 print(f"Warning: Project '{project_name}' not found in Todoist")
         return None
 
+    @staticmethod
+    def _looks_like_recurrence(value: str) -> bool:
+        """Check if a string looks like a recurrence pattern rather than a specific date"""
+        if not value:
+            return False
+        lower = value.lower()
+        recurrence_keywords = [
+            "every", "daily", "weekly", "monthly", "yearly",
+            "each", "workday", "weekday",
+        ]
+        return any(kw in lower for kw in recurrence_keywords)
+
     def _prepare_update_fields(self, task: TodoistTask, todoist_fields: Dict[str, Any]) -> Dict[str, Any]:
         """Prepare fields for updating a Todoist task"""
         update_fields = {}
 
+        # Defense-in-depth: skip due fields for recurring tasks unless the
+        # incoming value is itself a recurrence pattern (e.g. "every day").
+        # This prevents echoed date-only values from overwriting Todoist's
+        # managed recurrence.
+        skip_due = False
+        if task.is_recurring:
+            due_string_value = todoist_fields.get("due_string")
+            if due_string_value and self._looks_like_recurrence(str(due_string_value)):
+                skip_due = False  # Genuine recurrence update
+            else:
+                skip_due = True
+                print(f"Skipping due fields for recurring task {task.id} (not a recurrence pattern)")
+
         # Handle due dates - Todoist SDK expects due_date as a date object
-        if "due_string" in todoist_fields:
+        if not skip_due and "due_string" in todoist_fields:
             update_fields["due_string"] = todoist_fields["due_string"]
-        elif "due_date" in todoist_fields:
+        elif not skip_due and "due_date" in todoist_fields:
             due_val = todoist_fields["due_date"]
             if isinstance(due_val, str):
                 if "T" in due_val:
