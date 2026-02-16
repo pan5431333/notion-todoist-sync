@@ -981,8 +981,9 @@ class SyncService:
             if parent_task_id:
                 create_fields["parent_id"] = parent_task_id
 
-            # Handle due dates - convert due_date string to datetime.date object
-            if "due_string" not in create_fields and "due_date" in create_fields:
+            # Handle due dates - prefer due_date (exact ISO) over due_string (NLP-parsed)
+            if "due_date" in create_fields:
+                create_fields.pop("due_string", None)
                 due_value = create_fields.pop("due_date")
                 if isinstance(due_value, str):
                     # Extract date part if it includes time
@@ -1056,10 +1057,8 @@ class SyncService:
         from datetime import datetime
         update_fields = {}
 
-        # Handle due dates
-        if "due_string" in todoist_fields:
-            update_fields["due_string"] = todoist_fields["due_string"]
-        elif "due_date" in todoist_fields:
+        # Handle due dates - prefer due_date (exact ISO) over due_string (NLP-parsed)
+        if "due_date" in todoist_fields:
             due_str = todoist_fields["due_date"]
             if "T" in due_str:  # ISO format with time
                 due_str = due_str.split("T")[0]  # Keep only the date part
@@ -1070,7 +1069,9 @@ class SyncService:
             except ValueError:
                 # If parsing fails, fall back to due_string
                 update_fields["due_string"] = due_str
-        
+        elif "due_string" in todoist_fields:
+            update_fields["due_string"] = todoist_fields["due_string"]
+
         # Handle other fields
         for field in ["content", "description", "priority"]:
             if field in todoist_fields:

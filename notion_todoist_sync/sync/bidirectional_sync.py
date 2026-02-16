@@ -1,6 +1,6 @@
 """Bidirectional sync engine for Notion-Todoist sync"""
 import traceback
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from datetime import datetime, date
 
 from notion_todoist_sync.config import Configuration
@@ -75,15 +75,24 @@ class BidirectionalSyncEngine:
                 todoist_fields["project_id"] = project_id
                 todoist_fields.pop("project", None)
 
-            # Handle due dates - Todoist SDK expects due_date as a date object
-            if "due_date" in todoist_fields and "due_string" not in todoist_fields:
+            # Handle due dates - prefer due_date (exact ISO) over due_string (NLP-parsed)
+            # to avoid Todoist's NLP parser advancing year on ambiguous strings like "Mar 15"
+            if "due_date" in todoist_fields:
                 due_value = todoist_fields.pop("due_date")
+                todoist_fields.pop("due_string", None)
                 if isinstance(due_value, str):
                     if "T" in due_value:
                         due_value = due_value.split("T")[0]
                     todoist_fields["due_date"] = datetime.strptime(due_value, "%Y-%m-%d").date()
                 elif isinstance(due_value, date):
                     todoist_fields["due_date"] = due_value
+
+            # Resolve parent task
+            parent_task_id = await self._resolve_parent_task_id(
+                notion_page, todoist_fields.get("project_id")
+            )
+            if parent_task_id:
+                todoist_fields["parent_id"] = parent_task_id
 
             # Add From Notion label
             if "labels" not in todoist_fields:
@@ -112,6 +121,11 @@ class BidirectionalSyncEngine:
                     else:
                         # Update task fields
                         update_fields = self._prepare_update_fields(todoist_task, todoist_fields)
+                        # Handle re-parenting
+                        if parent_task_id:
+                            current_parent = str(todoist_task.parent_id) if todoist_task.parent_id else None
+                            if current_parent != str(parent_task_id):
+                                update_fields["parent_id"] = parent_task_id
                         if update_fields:
                             await self.todoist_repo.update_task(todoist_task.id, **update_fields)
                             print(f"Updated task {todoist_task.id}")
@@ -336,10 +350,8 @@ class BidirectionalSyncEngine:
                 skip_due = True
                 print(f"Skipping due fields for recurring task {task.id} (not a recurrence pattern)")
 
-        # Handle due dates - Todoist SDK expects due_date as a date object
-        if not skip_due and "due_string" in todoist_fields:
-            update_fields["due_string"] = todoist_fields["due_string"]
-        elif not skip_due and "due_date" in todoist_fields:
+        # Handle due dates - prefer due_date (exact ISO) over due_string (NLP-parsed)
+        if not skip_due and "due_date" in todoist_fields:
             due_val = todoist_fields["due_date"]
             if isinstance(due_val, str):
                 if "T" in due_val:
@@ -347,6 +359,8 @@ class BidirectionalSyncEngine:
                 update_fields["due_date"] = datetime.strptime(due_val, "%Y-%m-%d").date()
             elif isinstance(due_val, date):
                 update_fields["due_date"] = due_val
+        elif not skip_due and "due_string" in todoist_fields:
+            update_fields["due_string"] = todoist_fields["due_string"]
 
         # Handle other fields
         for field in ["content", "description", "priority"]:
@@ -370,3 +384,95 @@ class BidirectionalSyncEngine:
         update_fields["labels"] = labels
 
         return update_fields
+
+    async def _resolve_parent_task_id(
+        self, notion_page: Dict[str, Any], child_project_id: Optional[str] = None
+    ) -> Optional[str]:
+        """
+        Resolve the Todoist parent task ID for a Notion page.
+
+        Checks the parent relation field, finds or creates the parent Todoist task,
+        and returns its ID.
+        """
+        try:
+            parent_config = self.config.parent_task_field
+            if not parent_config or not parent_config.get("create_parent"):
+                return None
+
+            parent_field_name = parent_config.get("name")
+            if not parent_field_name:
+                return None
+
+            # Extract parent page ID from the relation field
+            parent_prop = notion_page.get("properties", {}).get(parent_field_name)
+            if not parent_prop or parent_prop.get("type") != "relation":
+                return None
+            relations = parent_prop.get("relation", [])
+            if not relations:
+                return None
+            parent_page_id = relations[0]["id"]
+
+            # Check if parent already has a synced Todoist task
+            parent_sync = self.sync_state_repo.get_by_notion_id(parent_page_id)
+            if parent_sync:
+                # Verify the task still exists
+                parent_todoist = await self.todoist_repo.get_task(parent_sync["todoist_id"])
+                if parent_todoist:
+                    return parent_sync["todoist_id"]
+
+            # Check if parent has >1 non-completed children to justify creating a parent task
+            child_tasks = self.notion_repo.query_child_tasks(parent_page_id, exclude_completed=True)
+            if len(child_tasks) <= 1:
+                return None
+
+            # Create a parent task in Todoist
+            parent_page = self.notion_repo.get_page(parent_page_id)
+            title_field = parent_config.get("title_field", "Name")
+            parent_title = NotionRepository.get_field_value(
+                parent_page.get("properties", {}).get(title_field)
+            )
+            if not parent_title:
+                parent_title = "Untitled Parent Task"
+
+            parent_fields: Dict[str, Any] = {"content": parent_title}
+            if self.todoist_repo.from_notion_label:
+                parent_fields["labels"] = [self.todoist_repo.from_notion_label]
+
+            # Determine project from children or use the child's project
+            project_id = child_project_id or self._determine_parent_project(child_tasks)
+            if project_id:
+                parent_fields["project_id"] = project_id
+
+            parent_task = await self.todoist_repo.create_task(**parent_fields)
+            await self.todoist_repo.add_comment(parent_task.id, f"Notion ID: {parent_page_id}")
+            print(f"Created parent task: {parent_title} (ID: {parent_task.id})")
+
+            # Record sync state for the parent
+            self.sync_state_repo.upsert(
+                parent_page_id,
+                parent_task.id,
+                sync_direction="notion_to_todoist"
+            )
+
+            return parent_task.id
+
+        except Exception as e:
+            print(f"Error resolving parent task: {e}")
+            traceback.print_exc()
+            return None
+
+    def _determine_parent_project(self, child_tasks: List[Dict[str, Any]]) -> Optional[str]:
+        """Determine the project for a parent task based on its children's mapped projects."""
+        for child_task in child_tasks:
+            for notion_field, todoist_field in self.config.field_mapping.items():
+                if todoist_field != "project":
+                    continue
+                prop = child_task.get("properties", {}).get(notion_field)
+                if not prop:
+                    continue
+                project_name = NotionRepository.get_field_value(prop)
+                if project_name:
+                    project_id = self.todoist_repo.get_project_id(project_name)
+                    if project_id:
+                        return project_id
+        return None
