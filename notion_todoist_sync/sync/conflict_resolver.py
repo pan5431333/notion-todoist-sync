@@ -1,6 +1,6 @@
 """Conflict resolution strategies for bidirectional sync"""
 from typing import Optional, Literal, Tuple
-from datetime import datetime
+from datetime import datetime, timezone
 
 from notion_todoist_sync.models import NotionTask, TodoistTask
 
@@ -121,6 +121,11 @@ class ConflictResolver:
 
         try:
             sync_time = datetime.fromisoformat(last_sync.replace("Z", "+00:00"))
+            # Ensure both datetimes are timezone-aware for comparison
+            if last_modified.tzinfo is None:
+                last_modified = last_modified.replace(tzinfo=timezone.utc)
+            if sync_time.tzinfo is None:
+                sync_time = sync_time.replace(tzinfo=timezone.utc)
             return last_modified > sync_time
         except ValueError:
             return False
