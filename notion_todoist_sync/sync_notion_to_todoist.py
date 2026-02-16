@@ -985,10 +985,10 @@ class SyncService:
             if "due_date" in create_fields:
                 create_fields.pop("due_string", None)
                 due_value = create_fields.pop("due_date")
-                if isinstance(due_value, str):
-                    # Extract date part if it includes time
-                    if "T" in due_value:
-                        due_value = due_value.split("T")[0]
+                if isinstance(due_value, str) and "T" in due_value:
+                    # Preserve time information — use due_datetime
+                    create_fields["due_datetime"] = due_value
+                elif isinstance(due_value, str):
                     # Convert string to datetime.date object for the API
                     try:
                         due_date_obj = datetime.strptime(due_value, "%Y-%m-%d").date()
@@ -1060,15 +1060,17 @@ class SyncService:
         # Handle due dates - prefer due_date (exact ISO) over due_string (NLP-parsed)
         if "due_date" in todoist_fields:
             due_str = todoist_fields["due_date"]
-            if "T" in due_str:  # ISO format with time
-                due_str = due_str.split("T")[0]  # Keep only the date part
-            # Convert string to datetime.date object for the API
-            try:
-                due_date_obj = datetime.strptime(due_str, "%Y-%m-%d").date()
-                update_fields["due_date"] = due_date_obj
-            except ValueError:
-                # If parsing fails, fall back to due_string
-                update_fields["due_string"] = due_str
+            if isinstance(due_str, str) and "T" in due_str:
+                # Preserve time information — use due_datetime
+                update_fields["due_datetime"] = due_str
+            elif isinstance(due_str, str):
+                # Convert string to datetime.date object for the API
+                try:
+                    due_date_obj = datetime.strptime(due_str, "%Y-%m-%d").date()
+                    update_fields["due_date"] = due_date_obj
+                except ValueError:
+                    # If parsing fails, fall back to due_string
+                    update_fields["due_string"] = due_str
         elif "due_string" in todoist_fields:
             update_fields["due_string"] = todoist_fields["due_string"]
 

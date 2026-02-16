@@ -80,9 +80,10 @@ class BidirectionalSyncEngine:
             if "due_date" in todoist_fields:
                 due_value = todoist_fields.pop("due_date")
                 todoist_fields.pop("due_string", None)
-                if isinstance(due_value, str):
-                    if "T" in due_value:
-                        due_value = due_value.split("T")[0]
+                if isinstance(due_value, str) and "T" in due_value:
+                    # Preserve time information — use due_datetime
+                    todoist_fields["due_datetime"] = due_value
+                elif isinstance(due_value, str):
                     todoist_fields["due_date"] = datetime.strptime(due_value, "%Y-%m-%d").date()
                 elif isinstance(due_value, date):
                     todoist_fields["due_date"] = due_value
@@ -354,9 +355,10 @@ class BidirectionalSyncEngine:
         # Handle due dates - prefer due_date (exact ISO) over due_string (NLP-parsed)
         if not skip_due and "due_date" in todoist_fields:
             due_val = todoist_fields["due_date"]
-            if isinstance(due_val, str):
-                if "T" in due_val:
-                    due_val = due_val.split("T")[0]
+            if isinstance(due_val, str) and "T" in due_val:
+                # Preserve time information — use due_datetime
+                update_fields["due_datetime"] = due_val
+            elif isinstance(due_val, str):
                 update_fields["due_date"] = datetime.strptime(due_val, "%Y-%m-%d").date()
             elif isinstance(due_val, date):
                 update_fields["due_date"] = due_val

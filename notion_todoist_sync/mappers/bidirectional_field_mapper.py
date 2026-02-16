@@ -112,7 +112,7 @@ class BidirectionalFieldMapper:
             return todoist_task.description
 
         elif todoist_field == "due_date":
-            return todoist_task.due_date
+            return todoist_task.due_datetime or todoist_task.due_date
 
         elif todoist_field == "due_string":
             return todoist_task.due_string

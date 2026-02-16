@@ -78,6 +78,7 @@ class TodoistTask:
     content: str
     description: Optional[str] = None
     due_date: Optional[str] = None
+    due_datetime: Optional[str] = None
     priority: int = 1
     project_id: Optional[str] = None
     labels: Optional[List[str]] = field(default_factory=list)
@@ -92,9 +93,12 @@ class TodoistTask:
         """Create TodoistTask from raw Todoist API response"""
         # Extract due information
         due_date = None
+        due_datetime = None
         due_string = None
         is_recurring = False
         if hasattr(data, 'due') and data.due:
+            if hasattr(data.due, 'datetime') and data.due.datetime:
+                due_datetime = data.due.datetime
             if hasattr(data.due, 'date'):
                 due_date = data.due.date
             if hasattr(data.due, 'string'):
@@ -145,6 +149,7 @@ class TodoistTask:
             content=data.content,
             description=description,
             due_date=due_date,
+            due_datetime=due_datetime,
             due_string=due_string,
             priority=priority,
             project_id=project_id,
@@ -162,7 +167,9 @@ class TodoistTask:
         }
         if self.description:
             result["description"] = self.description
-        if self.due_date:
+        if self.due_datetime:
+            result["due_datetime"] = self.due_datetime
+        elif self.due_date:
             result["due_date"] = self.due_date
         if self.due_string:
             result["due_string"] = self.due_string
