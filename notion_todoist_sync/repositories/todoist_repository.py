@@ -326,6 +326,10 @@ class TodoistRepository:
         """Update an existing Todoist task"""
         return await self.client.update_task(task_id=task_id, **kwargs)
 
+    async def move_task(self, task_id: str, **kwargs) -> bool:
+        """Move a task (e.g. re-parent via parent_id)"""
+        return await self.client.move_task(task_id=task_id, **kwargs)
+
     async def complete_task(self, task_id: str):
         """Mark a task as completed"""
         return await self.client.close_task(task_id=task_id)

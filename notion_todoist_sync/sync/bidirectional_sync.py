@@ -121,14 +121,15 @@ class BidirectionalSyncEngine:
                     else:
                         # Update task fields
                         update_fields = self._prepare_update_fields(todoist_task, todoist_fields)
-                        # Handle re-parenting
-                        if parent_task_id:
-                            current_parent = str(todoist_task.parent_id) if todoist_task.parent_id else None
-                            if current_parent != str(parent_task_id):
-                                update_fields["parent_id"] = parent_task_id
                         if update_fields:
                             await self.todoist_repo.update_task(todoist_task.id, **update_fields)
                             print(f"Updated task {todoist_task.id}")
+                        # Handle re-parenting via move_task (update_task doesn't support parent_id)
+                        if parent_task_id:
+                            current_parent = str(todoist_task.parent_id) if todoist_task.parent_id else None
+                            if current_parent != str(parent_task_id):
+                                await self.todoist_repo.move_task(todoist_task.id, parent_id=str(parent_task_id))
+                                print(f"Moved task {todoist_task.id} under parent {parent_task_id}")
 
             # Update sync state
             result_todoist_id = todoist_task.id if todoist_task else task.id
@@ -446,6 +447,17 @@ class BidirectionalSyncEngine:
             parent_task = await self.todoist_repo.create_task(**parent_fields)
             await self.todoist_repo.add_comment(parent_task.id, f"Notion ID: {parent_page_id}")
             print(f"Created parent task: {parent_title} (ID: {parent_task.id})")
+
+            # Move existing sibling tasks under the new parent
+            for child_task in child_tasks:
+                child_id = child_task["id"]
+                child_sync = self.sync_state_repo.get_by_notion_id(child_id)
+                if child_sync:
+                    try:
+                        await self.todoist_repo.move_task(child_sync["todoist_id"], parent_id=str(parent_task.id))
+                        print(f"Moved existing child {child_sync['todoist_id']} under parent {parent_task.id}")
+                    except Exception as move_err:
+                        print(f"Failed to move child {child_sync['todoist_id']} under parent: {move_err}")
 
             # Record sync state for the parent
             self.sync_state_repo.upsert(
