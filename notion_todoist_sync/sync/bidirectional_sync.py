@@ -436,8 +436,10 @@ class BidirectionalSyncEngine:
                 parent_title = "Untitled Parent Task"
 
             parent_fields: Dict[str, Any] = {"content": parent_title}
+            parent_fields["labels"] = []
             if self.todoist_repo.from_notion_label:
-                parent_fields["labels"] = [self.todoist_repo.from_notion_label]
+                parent_fields["labels"].append(self.todoist_repo.from_notion_label)
+            parent_fields["labels"].append("Project Parent")
 
             # Determine project from children or use the child's project
             project_id = child_project_id or self._determine_parent_project(child_tasks)
