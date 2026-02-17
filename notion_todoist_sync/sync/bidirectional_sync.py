@@ -159,6 +159,11 @@ class BidirectionalSyncEngine:
             todoist_task_data = await self.todoist_repo.get_task(todoist_task_id)
             todoist_task = TodoistTask.from_dict(todoist_task_data)
 
+            # Skip parent-only grouping tasks — their Notion page is in a
+            # different database whose schema doesn't match our field mapping.
+            if "Project Parent" in (todoist_task.labels or []):
+                return None
+
             # Find Notion ID from comments
             notion_id = await self._get_notion_id_from_todoist_task(todoist_task_id)
             if not notion_id:
