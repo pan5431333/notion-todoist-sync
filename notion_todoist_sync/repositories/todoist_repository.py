@@ -349,3 +349,24 @@ class TodoistRepository:
     async def get_task(self, task_id: str) -> Any:
         """Get a specific task by ID"""
         return await self.client.get_task(task_id=task_id)
+
+    async def is_task_deleted(self, task_id: str) -> bool:
+        """Check if a task has been deleted by inspecting the raw API response.
+
+        The library's Task model does not expose ``is_deleted``, but the
+        Todoist API v1 still returns deleted tasks via GET with this flag set.
+        """
+        import requests as _requests
+        from todoist_api_python._core.endpoints import get_api_url, TASKS_PATH
+
+        endpoint = get_api_url(f"{TASKS_PATH}/{task_id}")
+        token = self.client._api._token
+        resp = _requests.get(
+            endpoint,
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            return True  # treat inaccessible tasks as deleted
+        data = resp.json()
+        return bool(data.get("is_deleted", False))

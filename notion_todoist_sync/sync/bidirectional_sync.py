@@ -418,10 +418,13 @@ class BidirectionalSyncEngine:
             # Check if parent already has a synced Todoist task
             parent_sync = self.sync_state_repo.get_by_notion_id(parent_page_id)
             if parent_sync:
-                # Verify the task still exists
+                # Verify the task still exists and is not deleted
                 parent_todoist = await self.todoist_repo.get_task(parent_sync["todoist_id"])
-                if parent_todoist:
+                if parent_todoist and not await self.todoist_repo.is_task_deleted(parent_sync["todoist_id"]):
                     return parent_sync["todoist_id"]
+                # Parent task was deleted — clear stale sync state so we recreate it
+                print(f"Parent task {parent_sync['todoist_id']} is deleted, will recreate")
+                self.sync_state_repo.delete(parent_page_id)
 
             # Check if parent has >=1 non-completed children to justify creating a parent task
             child_tasks = self.notion_repo.query_child_tasks(parent_page_id, exclude_completed=True)
