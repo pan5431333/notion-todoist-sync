@@ -639,7 +639,7 @@ class SyncService:
                 non_completed_count = len(self.notion_service.query_child_tasks(parent_page_id, exclude_completed=True))
                 print(f"Parent {parent_page_id} has {non_completed_count} non-completed child tasks")
                 
-                if non_completed_count > 1:
+                if non_completed_count >= 1:
                     parent_task_id = await self._create_parent_task(parent_page_id, notion_tasks)
                     if parent_task_id:
                         parent_tasks_created[parent_page_id] = parent_task_id

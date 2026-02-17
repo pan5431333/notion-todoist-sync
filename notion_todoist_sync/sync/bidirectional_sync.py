@@ -423,9 +423,9 @@ class BidirectionalSyncEngine:
                 if parent_todoist:
                     return parent_sync["todoist_id"]
 
-            # Check if parent has >1 non-completed children to justify creating a parent task
+            # Check if parent has >=1 non-completed children to justify creating a parent task
             child_tasks = self.notion_repo.query_child_tasks(parent_page_id, exclude_completed=True)
-            if len(child_tasks) <= 1:
+            if len(child_tasks) < 1:
                 return None
 
             # Create a parent task in Todoist
