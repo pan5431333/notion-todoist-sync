@@ -591,13 +591,13 @@ class SyncService:
             print(f"Found {len(notion_tasks)} tasks to sync from Notion")
             
             # First pass: Create parent tasks
-            parent_tasks_created = await self._create_parent_tasks(notion_tasks, todoist_tasks, task_notion_map)
-            
+            parent_tasks_created, parent_project_map = await self._create_parent_tasks(notion_tasks, todoist_tasks, task_notion_map)
+
             # Second pass: Process all child tasks
             print(f"\nSecond pass: Processing {len(notion_tasks)} child tasks...")
             results = await asyncio.gather(*[
                 self._process_notion_task(
-                    task, todoist_tasks, task_notion_map, parent_tasks_created
+                    task, todoist_tasks, task_notion_map, parent_tasks_created, parent_project_map
                 )
                 for task in notion_tasks
             ])
@@ -609,19 +609,20 @@ class SyncService:
         except Exception as e:
             print(f"Sync failed: {e}")
     
-    async def _create_parent_tasks(self, notion_tasks: List[Dict[str, Any]], 
-                                 todoist_tasks: List[Any], 
-                                 task_notion_map: Dict[str, str]) -> Dict[str, str]:
-        """Create parent tasks that need to be created"""
+    async def _create_parent_tasks(self, notion_tasks: List[Dict[str, Any]],
+                                 todoist_tasks: List[Any],
+                                 task_notion_map: Dict[str, str]) -> Tuple[Dict[str, str], Dict[str, str]]:
+        """Create parent tasks that need to be created. Returns (parent_tasks_created, parent_project_map)."""
         parent_tasks_created = {}
+        parent_project_map = {}
         parent_config = self.config.parent_task_field
-        
+
         if not parent_config or not parent_config.get("create_parent"):
-            return parent_tasks_created
-        
+            return parent_tasks_created, parent_project_map
+
         print("\nFirst pass: Creating required parent tasks...")
         parent_candidates = {}
-        
+
         # Count how many children each potential parent has
         parent_field = parent_config["name"]
         for task in notion_tasks:
@@ -630,17 +631,22 @@ class SyncService:
                 if parent_relation["type"] == "relation" and parent_relation["relation"]:
                     parent_page_id = parent_relation["relation"][0]["id"]
                     parent_candidates[parent_page_id] = parent_candidates.get(parent_page_id, 0) + 1
-        
+
         # Create parent tasks for parents with >1 non-completed children
         for parent_page_id, _ in parent_candidates.items():
+            # Cache the parent page's project regardless of whether parent task exists
+            project_id = self._get_project_for_parent_page_id(parent_page_id)
+            if project_id:
+                parent_project_map[parent_page_id] = project_id
+
             existing_parent_id = self._find_existing_parent_task(todoist_tasks, task_notion_map, parent_page_id)
-            
+
             if not existing_parent_id:
                 non_completed_count = len(self.notion_service.query_child_tasks(parent_page_id, exclude_completed=True))
                 print(f"Parent {parent_page_id} has {non_completed_count} non-completed child tasks")
-                
+
                 if non_completed_count >= 1:
-                    parent_task_id = await self._create_parent_task(parent_page_id, notion_tasks)
+                    parent_task_id = await self._create_parent_task(parent_page_id)
                     if parent_task_id:
                         parent_tasks_created[parent_page_id] = parent_task_id
                         await self._update_existing_children_to_parent(
@@ -648,10 +654,8 @@ class SyncService:
                         )
             else:
                 # Check if existing parent has the correct project
-                correct_project_id = self._determine_parent_project([], parent_page_id)
-                if await self._should_recreate_parent_task(existing_parent_id, correct_project_id):
-                    # Delete old parent and create new one with correct project
-                    new_parent_id = await self._recreate_parent_task(existing_parent_id, parent_page_id, correct_project_id)
+                if await self._should_recreate_parent_task(existing_parent_id, project_id):
+                    new_parent_id = await self._recreate_parent_task(existing_parent_id, parent_page_id, project_id)
                     if new_parent_id:
                         parent_tasks_created[parent_page_id] = new_parent_id
                         await self._update_existing_children_to_parent(
@@ -661,12 +665,11 @@ class SyncService:
                         parent_tasks_created[parent_page_id] = existing_parent_id
                 else:
                     parent_tasks_created[parent_page_id] = existing_parent_id
-                    # Always ensure existing children are moved to the parent
                     await self._update_existing_children_to_parent(
                         todoist_tasks, task_notion_map, parent_page_id, existing_parent_id
                     )
-        
-        return parent_tasks_created
+
+        return parent_tasks_created, parent_project_map
     
     def _find_existing_parent_task(self, todoist_tasks: List[Any], 
                                  task_notion_map: Dict[str, str], 
@@ -679,7 +682,7 @@ class SyncService:
                 return task.id
         return None
     
-    async def _create_parent_task(self, parent_page_id: str, notion_tasks: List[Dict[str, Any]]) -> Optional[str]:
+    async def _create_parent_task(self, parent_page_id: str) -> Optional[str]:
         """Create a new parent task"""
         try:
             parent_config = self.config.parent_task_field
@@ -691,8 +694,8 @@ class SyncService:
                 print(f"Warning: Could not find title in field '{title_field}'")
                 parent_title = "Untitled Parent Task"
             
-            # Determine the project for the parent task from its children
-            parent_project_id = self._determine_parent_project(notion_tasks, parent_page_id)
+            # Determine the project from the parent page in 循证记录
+            parent_project_id = self._get_project_from_parent_page(parent_page)
             
             # Create parent task
             parent_fields = {
@@ -713,37 +716,24 @@ class SyncService:
             print(f"Error creating parent task for {parent_page_id}: {e}")
             return None
     
-    def _determine_parent_project(self, notion_tasks: List[Dict[str, Any]], parent_page_id: str) -> Optional[str]:
-        """Determine the project for a parent task based on its children"""
-        try:
-            # Get all child tasks from Notion (not just the recently modified ones)
-            child_notion_tasks = self.notion_service.query_child_tasks(parent_page_id, exclude_completed=False)
-            child_projects = set()
-            
-            # Check all child tasks to find their projects
-            for child_task in child_notion_tasks:
-                for notion_field, todoist_field in self.config.field_mapping.items():
-                    if todoist_field == "project" and notion_field in child_task["properties"]:
-                        project_value = child_task["properties"][notion_field]
-                        if project_value["type"] == "select" and project_value["select"]:
-                            project_name = project_value["select"]["name"]
-                            child_projects.add(project_name)
-                            print(f"Found child project: {project_name}")
-                        elif project_value["type"] == "rich_text" and project_value["rich_text"]:
-                            project_name = project_value["rich_text"][0]["plain_text"]
-                            child_projects.add(project_name)
-                            print(f"Found child project: {project_name}")
-            
-            if child_projects:
-                project_name = list(child_projects)[0]
-                project_id = self.todoist_service.get_project_id(project_name)
-                print(f"Determined parent project: {project_name} (ID: {project_id})")
-                return project_id
-                
-        except Exception as e:
-            print(f"Error determining parent project: {e}")
-        
+    def _get_project_from_parent_page(self, parent_page: Dict[str, Any]) -> Optional[str]:
+        """Extract project from parent page properties using the field mapping"""
+        for notion_field, todoist_field in self.config.field_mapping.items():
+            if todoist_field == "project" and notion_field in parent_page.get("properties", {}):
+                project_value = parent_page["properties"][notion_field]
+                project_name = NotionService.get_field_value(project_value)
+                if project_name:
+                    project_id = self.todoist_service.get_project_id(project_name)
+                    if project_id:
+                        print(f"Found project from parent page: {project_name} (ID: {project_id})")
+                        return project_id
+                break
         return None
+
+    def _get_project_for_parent_page_id(self, parent_page_id: str) -> Optional[str]:
+        """Fetch parent page and extract project from it"""
+        parent_page = self.notion_service.get_page(parent_page_id)
+        return self._get_project_from_parent_page(parent_page)
     
     async def _should_recreate_parent_task(self, parent_task_id: str, correct_project_id: Optional[str]) -> bool:
         """Check if parent task needs to be recreated due to project mismatch"""
@@ -901,23 +891,24 @@ class SyncService:
         except Exception as e:
             print(f"Error updating child tasks: {e}")
     
-    async def _process_notion_task(self, notion_task: Dict[str, Any], 
-                                 todoist_tasks: List[Any], 
-                                 task_notion_map: Dict[str, str], 
-                                 parent_tasks_created: Dict[str, str]) -> int:
+    async def _process_notion_task(self, notion_task: Dict[str, Any],
+                                 todoist_tasks: List[Any],
+                                 task_notion_map: Dict[str, str],
+                                 parent_tasks_created: Dict[str, str],
+                                 parent_project_map: Dict[str, str] = None) -> int:
         """Process a single Notion task and sync it to Todoist"""
         try:
             notion_id = notion_task["id"]
             print(f"Processing Notion task: {notion_id}")
-            
+
             # Map Notion fields to Todoist fields
             todoist_fields = self.task_mapper.map_notion_to_todoist(notion_task)
-            
-            # Handle project mapping
-            project_id = self._get_project_id_from_fields(todoist_fields)
+
+            # Handle project mapping — use parent page's project from 循证记录
+            project_id = self._get_project_id_for_task(notion_task, todoist_fields, parent_project_map or {})
             if project_id:
                 todoist_fields["project_id"] = project_id
-                todoist_fields.pop("project", None)  # Remove project name
+                todoist_fields.pop("project", None)
             
             # Check for parent relationship
             parent_task_id = self._get_parent_task_id(notion_task, parent_tasks_created)
@@ -939,18 +930,36 @@ class SyncService:
             print(f"Failed to process Notion task {notion_task.get('id', 'unknown')}: {e}")
             return 0
     
-    def _get_project_id_from_fields(self, todoist_fields: Dict[str, Any]) -> Optional[str]:
-        """Get project ID from mapped fields"""
-        if "project" in todoist_fields:
-            project_name = todoist_fields["project"]
-            project_id = self.todoist_service.get_project_id(project_name)
-            if project_id:
-                print(f"Mapped project '{project_name}' to ID: {project_id}")
-                return project_id
-            else:
-                print(f"Warning: Project '{project_name}' not found in Todoist")
-        return None
-    
+    def _get_project_id_for_task(self, notion_task: Dict[str, Any], todoist_fields: Dict[str, Any],
+                                 parent_project_map: Dict[str, str]) -> Optional[str]:
+        """Get project ID from parent 循证记录 page, ignoring task's own 项目 field"""
+        todoist_fields.pop("project", None)  # Never use task's own 项目
+
+        parent_config = self.config.parent_task_field
+        if not parent_config:
+            return None
+
+        parent_field = parent_config["name"]
+        if parent_field not in notion_task.get("properties", {}):
+            return None
+
+        parent_relation = notion_task["properties"][parent_field]
+        if parent_relation.get("type") != "relation" or not parent_relation.get("relation"):
+            return None
+
+        parent_page_id = parent_relation["relation"][0]["id"]
+        project_id = parent_project_map.get(parent_page_id)
+        if project_id:
+            print(f"Using project from parent 循证记录 page: {project_id}")
+            return project_id
+
+        # Lazy-load: fetch project from parent page if not in cache
+        project_id = self._get_project_for_parent_page_id(parent_page_id)
+        if project_id:
+            parent_project_map[parent_page_id] = project_id
+            print(f"Lazy-loaded project from parent page: {project_id}")
+        return project_id
+
     def _get_parent_task_id(self, notion_task: Dict[str, Any], parent_tasks_created: Dict[str, str]) -> Optional[str]:
         """Get parent task ID if applicable"""
         parent_config = self.config.parent_task_field

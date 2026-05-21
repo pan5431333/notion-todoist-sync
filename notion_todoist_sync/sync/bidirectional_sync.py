@@ -1,6 +1,6 @@
 """Bidirectional sync engine for Notion-Todoist sync"""
 import traceback
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 from datetime import datetime, date
 
 from notion_todoist_sync.config import Configuration
@@ -69,11 +69,8 @@ class BidirectionalSyncEngine:
             # Map Notion to Todoist
             todoist_fields = self.mapper.map_notion_to_todoist(notion_page)
 
-            # Handle project mapping
-            project_id = self._get_project_id_from_fields(todoist_fields)
-            if project_id:
-                todoist_fields["project_id"] = project_id
-                todoist_fields.pop("project", None)
+            # Handle project mapping — never use task's own 项目
+            todoist_fields.pop("project", None)
 
             # Handle due dates - prefer due_date (exact ISO) over due_string (NLP-parsed)
             # to avoid Todoist's NLP parser advancing year on ambiguous strings like "Mar 15"
@@ -88,10 +85,10 @@ class BidirectionalSyncEngine:
                 elif isinstance(due_value, date):
                     todoist_fields["due_date"] = due_value
 
-            # Resolve parent task
-            parent_task_id = await self._resolve_parent_task_id(
-                notion_page, todoist_fields.get("project_id")
-            )
+            # Resolve parent task and get project from parent 循证记录 page
+            parent_task_id, parent_project_id = await self._resolve_parent_task_id(notion_page)
+            if parent_project_id:
+                todoist_fields["project_id"] = parent_project_id
             if parent_task_id:
                 todoist_fields["parent_id"] = parent_task_id
 
@@ -316,18 +313,6 @@ class BidirectionalSyncEngine:
             print(f"Error getting comments for task {task_id}: {e}")
             return None
 
-    def _get_project_id_from_fields(self, todoist_fields: Dict[str, Any]) -> Optional[str]:
-        """Get project ID from mapped fields"""
-        if "project" in todoist_fields:
-            project_name = todoist_fields["project"]
-            project_id = self.todoist_repo.get_project_id(project_name)
-            if project_id:
-                print(f"Mapped project '{project_name}' to ID: {project_id}")
-                return project_id
-            else:
-                print(f"Warning: Project '{project_name}' not found in Todoist")
-        return None
-
     @staticmethod
     def _looks_like_recurrence(value: str) -> bool:
         """Check if a string looks like a recurrence pattern rather than a specific date"""
@@ -394,30 +379,30 @@ class BidirectionalSyncEngine:
         return update_fields
 
     async def _resolve_parent_task_id(
-        self, notion_page: Dict[str, Any], child_project_id: Optional[str] = None
-    ) -> Optional[str]:
+        self, notion_page: Dict[str, Any]
+    ) -> Tuple[Optional[str], Optional[str]]:
         """
         Resolve the Todoist parent task ID for a Notion page.
 
         Checks the parent relation field, finds or creates the parent Todoist task,
-        and returns its ID.
+        and returns (parent_task_id, project_id_from_parent_page).
         """
         try:
             parent_config = self.config.parent_task_field
             if not parent_config or not parent_config.get("create_parent"):
-                return None
+                return None, None
 
             parent_field_name = parent_config.get("name")
             if not parent_field_name:
-                return None
+                return None, None
 
             # Extract parent page ID from the relation field
             parent_prop = notion_page.get("properties", {}).get(parent_field_name)
             if not parent_prop or parent_prop.get("type") != "relation":
-                return None
+                return None, None
             relations = parent_prop.get("relation", [])
             if not relations:
-                return None
+                return None, None
             parent_page_id = relations[0]["id"]
 
             # Check if parent already has a synced Todoist task
@@ -426,7 +411,10 @@ class BidirectionalSyncEngine:
                 # Verify the task still exists and is not deleted
                 parent_todoist = await self.todoist_repo.get_task(parent_sync["todoist_id"])
                 if parent_todoist and not await self.todoist_repo.is_task_deleted(parent_sync["todoist_id"]):
-                    return parent_sync["todoist_id"]
+                    # Extract project from parent page
+                    parent_page = self.notion_repo.get_page(parent_page_id)
+                    project_id = self._get_project_from_parent_page(parent_page)
+                    return parent_sync["todoist_id"], project_id
                 # Parent task was deleted — clear stale sync state so we recreate it
                 print(f"Parent task {parent_sync['todoist_id']} is deleted, will recreate")
                 self.sync_state_repo.delete(parent_page_id)
@@ -434,7 +422,7 @@ class BidirectionalSyncEngine:
             # Check if parent has >=1 non-completed children to justify creating a parent task
             child_tasks = self.notion_repo.query_child_tasks(parent_page_id, exclude_completed=True)
             if len(child_tasks) < 1:
-                return None
+                return None, None
 
             # Create a parent task in Todoist
             parent_page = self.notion_repo.get_page(parent_page_id)
@@ -451,8 +439,8 @@ class BidirectionalSyncEngine:
                 parent_fields["labels"].append(self.todoist_repo.from_notion_label)
             parent_fields["labels"].append("Project Parent")
 
-            # Determine project from children or use the child's project
-            project_id = child_project_id or self._determine_parent_project(child_tasks)
+            # Determine project from parent page in 循证记录
+            project_id = self._get_project_from_parent_page(parent_page)
             if project_id:
                 parent_fields["project_id"] = project_id
 
@@ -478,25 +466,25 @@ class BidirectionalSyncEngine:
                 sync_direction="notion_to_todoist"
             )
 
-            return parent_task.id
+            return parent_task.id, project_id
 
         except Exception as e:
             print(f"Error resolving parent task: {e}")
             traceback.print_exc()
-            return None
+            return None, None
 
-    def _determine_parent_project(self, child_tasks: List[Dict[str, Any]]) -> Optional[str]:
-        """Determine the project for a parent task based on its children's mapped projects."""
-        for child_task in child_tasks:
-            for notion_field, todoist_field in self.config.field_mapping.items():
-                if todoist_field != "project":
-                    continue
-                prop = child_task.get("properties", {}).get(notion_field)
+    def _get_project_from_parent_page(self, parent_page: Dict[str, Any]) -> Optional[str]:
+        """Extract project from parent page properties using the field mapping"""
+        for notion_field, todoist_field in self.config.field_mapping.items():
+            if todoist_field == "project" and notion_field in parent_page.get("properties", {}):
+                prop = parent_page["properties"].get(notion_field)
                 if not prop:
                     continue
                 project_name = NotionRepository.get_field_value(prop)
                 if project_name:
                     project_id = self.todoist_repo.get_project_id(project_name)
                     if project_id:
+                        print(f"Found project from parent page: {project_name} (ID: {project_id})")
                         return project_id
+                break
         return None
