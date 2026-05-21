@@ -379,6 +379,8 @@ class BidirectionalSyncEngine:
 
         if self.todoist_repo.from_notion_label and self.todoist_repo.from_notion_label not in labels:
             labels.append(self.todoist_repo.from_notion_label)
+        if "Project Parent" in current_labels and "Project Parent" not in labels:
+            labels.append("Project Parent")
         update_fields["labels"] = labels
 
         return update_fields
