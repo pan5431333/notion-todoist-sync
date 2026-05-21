@@ -990,8 +990,12 @@ class SyncService:
             if parent_task_id:
                 create_fields["parent_id"] = parent_task_id
 
-            # Handle due dates - prefer due_date (exact ISO) over due_string (NLP-parsed)
-            if "due_date" in create_fields:
+            # Handle due dates — combine due_string and due_date when both are set
+            if "due_date" in create_fields and "due_string" in create_fields and create_fields["due_string"].strip():
+                due_string = create_fields.pop("due_string")
+                due_date = create_fields.pop("due_date")
+                create_fields["due_string"] = f"{due_string} starting {due_date}"
+            elif "due_date" in create_fields:
                 create_fields.pop("due_string", None)
                 due_value = create_fields.pop("due_date")
                 if isinstance(due_value, str) and "T" in due_value:
@@ -1066,8 +1070,10 @@ class SyncService:
         from datetime import datetime
         update_fields = {}
 
-        # Handle due dates - prefer due_date (exact ISO) over due_string (NLP-parsed)
-        if "due_date" in todoist_fields:
+        # Handle due dates — combine due_string and due_date when both are set
+        if "due_date" in todoist_fields and "due_string" in todoist_fields and todoist_fields["due_string"].strip():
+            update_fields["due_string"] = f"{todoist_fields['due_string']} starting {todoist_fields['due_date']}"
+        elif "due_date" in todoist_fields:
             due_str = todoist_fields["due_date"]
             if isinstance(due_str, str) and "T" in due_str:
                 # Preserve time information — use due_datetime

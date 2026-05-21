@@ -72,9 +72,12 @@ class BidirectionalSyncEngine:
             # Handle project mapping — never use task's own 项目
             todoist_fields.pop("project", None)
 
-            # Handle due dates - prefer due_date (exact ISO) over due_string (NLP-parsed)
-            # to avoid Todoist's NLP parser advancing year on ambiguous strings like "Mar 15"
-            if "due_date" in todoist_fields:
+            # Handle due dates — combine due_string and due_date when both are set
+            if "due_date" in todoist_fields and "due_string" in todoist_fields and todoist_fields["due_string"].strip():
+                due_string = todoist_fields.pop("due_string")
+                due_date = todoist_fields.pop("due_date")
+                todoist_fields["due_string"] = f"{due_string} starting {due_date}"
+            elif "due_date" in todoist_fields:
                 due_value = todoist_fields.pop("due_date")
                 todoist_fields.pop("due_string", None)
                 if isinstance(due_value, str) and "T" in due_value:
@@ -342,8 +345,10 @@ class BidirectionalSyncEngine:
                 skip_due = True
                 print(f"Skipping due fields for recurring task {task.id} (not a recurrence pattern)")
 
-        # Handle due dates - prefer due_date (exact ISO) over due_string (NLP-parsed)
-        if not skip_due and "due_date" in todoist_fields:
+        # Handle due dates — combine due_string and due_date when both are set
+        if not skip_due and "due_date" in todoist_fields and "due_string" in todoist_fields and todoist_fields["due_string"].strip():
+            update_fields["due_string"] = f"{todoist_fields['due_string']} starting {todoist_fields['due_date']}"
+        elif not skip_due and "due_date" in todoist_fields:
             due_val = todoist_fields["due_date"]
             if isinstance(due_val, str) and "T" in due_val:
                 # Preserve time information — use due_datetime
