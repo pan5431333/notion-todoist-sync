@@ -1,4 +1,5 @@
 """Bidirectional sync engine for Notion-Todoist sync"""
+import re
 import traceback
 from typing import Optional, Dict, Any, List, Tuple
 from datetime import datetime, date
@@ -74,8 +75,9 @@ class BidirectionalSyncEngine:
 
             # Handle due dates — combine due_string and due_date when both are set
             if "due_date" in todoist_fields and "due_string" in todoist_fields and todoist_fields["due_string"].strip():
-                due_string = todoist_fields.pop("due_string")
+                due_string = todoist_fields.pop("due_string").strip()
                 due_date = todoist_fields.pop("due_date")
+                due_string = re.sub(r'\s+starting\s+\S.*$', '', due_string)
                 todoist_fields["due_string"] = f"{due_string} starting {due_date}"
             elif "due_date" in todoist_fields:
                 due_value = todoist_fields.pop("due_date")
@@ -347,7 +349,9 @@ class BidirectionalSyncEngine:
 
         # Handle due dates — combine due_string and due_date when both are set
         if not skip_due and "due_date" in todoist_fields and "due_string" in todoist_fields and todoist_fields["due_string"].strip():
-            update_fields["due_string"] = f"{todoist_fields['due_string']} starting {todoist_fields['due_date']}"
+            due_string = todoist_fields["due_string"].strip()
+            due_string = re.sub(r'\s+starting\s+\S.*$', '', due_string)
+            update_fields["due_string"] = f"{due_string} starting {todoist_fields['due_date']}"
         elif not skip_due and "due_date" in todoist_fields:
             due_val = todoist_fields["due_date"]
             if isinstance(due_val, str) and "T" in due_val:
