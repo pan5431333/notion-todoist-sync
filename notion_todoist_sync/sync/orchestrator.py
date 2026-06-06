@@ -53,7 +53,7 @@ class SyncOrchestrator:
         # Echo suppression: tracks entities we just wrote to
         # Key: "notion:{page_id}" or "todoist:{task_id}", Value: time.monotonic() timestamp
         self._recently_synced: Dict[str, float] = {}
-        self._echo_ttl = 10.0  # seconds
+        self._echo_ttl = 120.0  # seconds (Notion webhooks have ~1 min delay)
 
         # Event queue
         self._event_queue: asyncio.Queue = asyncio.Queue()
