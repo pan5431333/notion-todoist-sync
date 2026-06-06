@@ -1,5 +1,4 @@
 """Bidirectional sync engine for Notion-Todoist sync"""
-import re
 import traceback
 from typing import Optional, Dict, Any, List, Tuple
 from datetime import datetime, date
@@ -73,12 +72,9 @@ class BidirectionalSyncEngine:
             # Handle project mapping — never use task's own 项目
             todoist_fields.pop("project", None)
 
-            # Handle due dates — combine due_string and due_date when both are set
-            if "due_date" in todoist_fields and "due_string" in todoist_fields and todoist_fields["due_string"].strip():
-                due_string = todoist_fields.pop("due_string").strip()
-                due_date = todoist_fields.pop("due_date")
-                due_string = re.sub(r'\s+starting\s+\S.*$', '', due_string)
-                todoist_fields["due_string"] = f"{due_string} starting {due_date}"
+            # Handle due dates — use due_string as-is when set
+            if "due_string" in todoist_fields and todoist_fields["due_string"].strip():
+                todoist_fields.pop("due_date", None)
             elif "due_date" in todoist_fields:
                 due_value = todoist_fields.pop("due_date")
                 todoist_fields.pop("due_string", None)
@@ -347,11 +343,9 @@ class BidirectionalSyncEngine:
                 skip_due = True
                 print(f"Skipping due fields for recurring task {task.id} (not a recurrence pattern)")
 
-        # Handle due dates — combine due_string and due_date when both are set
-        if not skip_due and "due_date" in todoist_fields and "due_string" in todoist_fields and todoist_fields["due_string"].strip():
-            due_string = todoist_fields["due_string"].strip()
-            due_string = re.sub(r'\s+starting\s+\S.*$', '', due_string)
-            update_fields["due_string"] = f"{due_string} starting {todoist_fields['due_date']}"
+        # Handle due dates — use due_string as-is when set
+        if not skip_due and "due_string" in todoist_fields and todoist_fields["due_string"].strip():
+            update_fields["due_string"] = todoist_fields["due_string"].strip()
         elif not skip_due and "due_date" in todoist_fields:
             due_val = todoist_fields["due_date"]
             if isinstance(due_val, str) and "T" in due_val:
@@ -361,8 +355,6 @@ class BidirectionalSyncEngine:
                 update_fields["due_date"] = datetime.strptime(due_val, "%Y-%m-%d").date()
             elif isinstance(due_val, date):
                 update_fields["due_date"] = due_val
-        elif not skip_due and "due_string" in todoist_fields:
-            update_fields["due_string"] = todoist_fields["due_string"]
 
         # Handle other fields
         for field in ["content", "description", "priority"]:

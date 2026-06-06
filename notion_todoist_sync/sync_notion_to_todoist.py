@@ -1,5 +1,4 @@
 import os
-import re
 import json
 import asyncio
 import datetime
@@ -991,12 +990,9 @@ class SyncService:
             if parent_task_id:
                 create_fields["parent_id"] = parent_task_id
 
-            # Handle due dates — combine due_string and due_date when both are set
-            if "due_date" in create_fields and "due_string" in create_fields and create_fields["due_string"].strip():
-                due_string = create_fields.pop("due_string").strip()
-                due_date = create_fields.pop("due_date")
-                due_string = re.sub(r'\s+starting\s+\S.*$', '', due_string)
-                create_fields["due_string"] = f"{due_string} starting {due_date}"
+            # Handle due dates — use due_string as-is when set
+            if "due_string" in create_fields and create_fields["due_string"].strip():
+                create_fields.pop("due_date", None)
             elif "due_date" in create_fields:
                 create_fields.pop("due_string", None)
                 due_value = create_fields.pop("due_date")
@@ -1072,11 +1068,9 @@ class SyncService:
         from datetime import datetime
         update_fields = {}
 
-        # Handle due dates — combine due_string and due_date when both are set
-        if "due_date" in todoist_fields and "due_string" in todoist_fields and todoist_fields["due_string"].strip():
-            due_string = todoist_fields["due_string"].strip()
-            due_string = re.sub(r'\s+starting\s+\S.*$', '', due_string)
-            update_fields["due_string"] = f"{due_string} starting {todoist_fields['due_date']}"
+        # Handle due dates — use due_string as-is when set
+        if "due_string" in todoist_fields and todoist_fields["due_string"].strip():
+            update_fields["due_string"] = todoist_fields["due_string"].strip()
         elif "due_date" in todoist_fields:
             due_str = todoist_fields["due_date"]
             if isinstance(due_str, str) and "T" in due_str:
@@ -1090,8 +1084,6 @@ class SyncService:
                 except ValueError:
                     # If parsing fails, fall back to due_string
                     update_fields["due_string"] = due_str
-        elif "due_string" in todoist_fields:
-            update_fields["due_string"] = todoist_fields["due_string"]
 
         # Handle other fields
         for field in ["content", "description", "priority"]:
